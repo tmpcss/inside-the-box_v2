@@ -319,6 +319,7 @@ export default function App() {
   const dragStartRef = useRef({ x: 0, y: 0, winX: 0, winY: 0 });
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const faceDragRef = useRef<{ faceId: number; startMouseX: number; startMouseY: number; startMX: number; startMY: number; mW: number; mH: number } | null>(null);
+  const faceResizeRef = useRef<{ faceId: number; handle: string; startMouseX: number; startMouseY: number; startMX: number; startMY: number; startMW: number; startMH: number } | null>(null);
 
   const [faces, setFaces] = useState<FaceConfig[]>(() => {
     const initScene: SceneType = 'trailer';
@@ -2165,90 +2166,106 @@ export default function App() {
                 className="absolute inset-0 w-full h-full"
               />
 
-              {/* Draggable segment overlays */}
-              <div className="absolute inset-0">
-                {faces.map((face, index) => {
-                  const color = index === 0 ? '#ff0066' : index === 1 ? '#00ff85' : index === 2 ? '#0066ff' : '#ffff00';
-                  return (
-                    <div
-                      key={face.id}
-                      className="absolute border select-none"
-                      style={{
-                        left: `${face.mapping.x * 100}%`,
-                        top: `${face.mapping.y * 100}%`,
-                        width: `${face.mapping.w * 100}%`,
-                        height: `${face.mapping.h * 100}%`,
-                        borderColor: color,
-                        background: color + '18',
-                        cursor: 'grab',
-                        boxSizing: 'border-box',
-                      }}
-                      onPointerDown={e => {
-                        e.stopPropagation();
-                        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-                        faceDragRef.current = {
-                          faceId: face.id,
-                          startMouseX: e.clientX,
-                          startMouseY: e.clientY,
-                          startMX: face.mapping.x,
-                          startMY: face.mapping.y,
-                          mW: face.mapping.w,
-                          mH: face.mapping.h,
-                        };
-                      }}
-                      onPointerMove={e => {
-                        const drag = faceDragRef.current;
-                        if (!drag || drag.faceId !== face.id) return;
-                        const rect = previewContainerRef.current?.getBoundingClientRect();
-                        if (!rect) return;
-                        const dx = (e.clientX - drag.startMouseX) / rect.width;
-                        const dy = (e.clientY - drag.startMouseY) / rect.height;
-                        const newX = Math.max(0, Math.min(1 - drag.mW, drag.startMX + dx));
-                        const newY = Math.max(0, Math.min(1 - drag.mH, drag.startMY + dy));
-                        updateFace(face.id, { mapping: { ...face.mapping, x: newX, y: newY } });
-                      }}
-                      onPointerUp={() => { faceDragRef.current = null; }}
-                    >
-                      <div className="absolute top-0 left-0 px-1 py-0.5 text-[7px] font-bold uppercase"
-                        style={{ background: color, color: '#000' }}>{face.name}</div>
-                    </div>
-                  );
-                })}
+              {/* Draggable segment overlays — Resolume-style with 8-point resize handles */}
+              <div className="absolute inset-0" style={{ overflow: 'visible' }}>
+                {(() => {
+                  const COLORS = ['#ff0066', '#00ff85', '#0066ff', '#ffff00'];
+                  const HANDLES: { key: string; style: React.CSSProperties }[] = [
+                    { key: 'nw', style: { top: -5, left:  -5, cursor: 'nwse-resize' } },
+                    { key: 'n',  style: { top: -5, left: 'calc(50% - 5px)', cursor: 'ns-resize' } },
+                    { key: 'ne', style: { top: -5, right: -5, cursor: 'nesw-resize' } },
+                    { key: 'e',  style: { top: 'calc(50% - 5px)', right: -5, cursor: 'ew-resize' } },
+                    { key: 'se', style: { bottom: -5, right: -5, cursor: 'nwse-resize' } },
+                    { key: 's',  style: { bottom: -5, left: 'calc(50% - 5px)', cursor: 'ns-resize' } },
+                    { key: 'sw', style: { bottom: -5, left:  -5, cursor: 'nesw-resize' } },
+                    { key: 'w',  style: { top: 'calc(50% - 5px)', left: -5, cursor: 'ew-resize' } },
+                  ];
+                  return faces.map((face, index) => {
+                    const color = COLORS[index];
+                    return (
+                      <div
+                        key={face.id}
+                        className="absolute select-none"
+                        style={{ left: `${face.mapping.x * 100}%`, top: `${face.mapping.y * 100}%`, width: `${face.mapping.w * 100}%`, height: `${face.mapping.h * 100}%`, border: `2px solid ${color}`, background: color + '15', boxSizing: 'border-box', cursor: 'move' }}
+                        onPointerDown={e => {
+                          if ((e.target as HTMLElement).dataset.handle) return;
+                          e.stopPropagation();
+                          (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                          faceDragRef.current = { faceId: face.id, startMouseX: e.clientX, startMouseY: e.clientY, startMX: face.mapping.x, startMY: face.mapping.y, mW: face.mapping.w, mH: face.mapping.h };
+                        }}
+                        onPointerMove={e => {
+                          const drag = faceDragRef.current;
+                          if (!drag || drag.faceId !== face.id) return;
+                          const rect = previewContainerRef.current?.getBoundingClientRect();
+                          if (!rect) return;
+                          updateFace(face.id, { mapping: { ...face.mapping, x: drag.startMX + (e.clientX - drag.startMouseX) / rect.width, y: drag.startMY + (e.clientY - drag.startMouseY) / rect.height } });
+                        }}
+                        onPointerUp={() => { faceDragRef.current = null; }}
+                      >
+                        <div className="absolute top-0 left-0 px-1 py-0.5 text-[7px] font-bold uppercase pointer-events-none" style={{ background: color, color: '#000' }}>{face.name}</div>
+                        <div className="absolute bottom-0 right-0 px-1 py-0.5 text-[7px] font-bold uppercase pointer-events-none" style={{ background: color + 'bb', color: '#000' }}>{face.name}</div>
+
+                        {HANDLES.map(({ key, style }) => (
+                          <div
+                            key={key}
+                            data-handle={key}
+                            className="absolute"
+                            style={{ width: 10, height: 10, background: '#fff', border: `2px solid ${color}`, boxSizing: 'border-box', zIndex: 20, ...style }}
+                            onPointerDown={e => {
+                              e.stopPropagation();
+                              (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                              faceResizeRef.current = { faceId: face.id, handle: key, startMouseX: e.clientX, startMouseY: e.clientY, startMX: face.mapping.x, startMY: face.mapping.y, startMW: face.mapping.w, startMH: face.mapping.h };
+                            }}
+                            onPointerMove={e => {
+                              const r = faceResizeRef.current;
+                              if (!r || r.faceId !== face.id || r.handle !== key) return;
+                              const rect = previewContainerRef.current?.getBoundingClientRect();
+                              if (!rect) return;
+                              const dx = (e.clientX - r.startMouseX) / rect.width;
+                              const dy = (e.clientY - r.startMouseY) / rect.height;
+                              let x = r.startMX, y = r.startMY, w = r.startMW, h = r.startMH;
+                              if (key.includes('e')) w = Math.max(0.02, w + dx);
+                              if (key.includes('w')) { x = x + dx; w = Math.max(0.02, w - dx); }
+                              if (key.includes('s')) h = Math.max(0.02, h + dy);
+                              if (key.includes('n')) { y = y + dy; h = Math.max(0.02, h - dy); }
+                              updateFace(face.id, { mapping: { x, y, w, h } });
+                            }}
+                            onPointerUp={() => { faceResizeRef.current = null; }}
+                          />
+                        ))}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
 
             {/* Precision Inputs */}
-            <div className="grid grid-cols-4 gap-3 bg-black/40 p-3 rounded-lg border border-white/5 overflow-y-auto">
-              {faces.map((f, idx) => {
-                const color = idx === 0 ? '#ff0066' : idx === 1 ? '#00ff85' : idx === 2 ? '#0066ff' : '#ffff00';
-                return (
-                  <div key={f.id} className="space-y-2 border-l-2 pl-2" style={{ borderColor: color }}>
-                    <p className="text-[9px] font-black text-white/50 uppercase">{f.name}</p>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[8px] text-white/30 uppercase"><span>X Pos</span> <span>{f.mapping.x.toFixed(4)}</span></div>
-                      <input type="range" min={0} max={1} step={0.0001} value={f.mapping.x}
-                        onChange={e => {
-                          let val = +e.target.value;
-                          // Simple Magnetic Snapping
-                          faces.forEach((other, oi) => {
-                            if (oi === idx) return;
-                            const near = other.mapping.x + other.mapping.w;
-                            if (Math.abs(val - near) < 0.005) val = near;
-                            if (Math.abs(val - other.mapping.x) < 0.005) val = other.mapping.x;
-                          });
-                          updateFace(f.id, { mapping: { ...f.mapping, x: val } });
-                        }}
-                        className="w-full accent-white h-1" />
-
-                      <div className="flex justify-between text-[8px] text-white/30 uppercase"><span>Width</span> <span>{f.mapping.w.toFixed(4)}</span></div>
-                      <input type="range" min={0} max={1} step={0.0001} value={f.mapping.w}
-                        onChange={e => updateFace(f.id, { mapping: { ...f.mapping, w: +e.target.value } })}
-                        className="w-full accent-white h-1" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {(() => {
+              const COLORS = ['#ff0066', '#00ff85', '#0066ff', '#ffff00'];
+              return (
+                <div className="grid grid-cols-4 gap-3 bg-black/40 p-3 rounded-lg border border-white/5 overflow-y-auto">
+                  {faces.map((f, idx) => {
+                    const color = COLORS[idx];
+                    const row = (label: string, val: number, onChange: (v: number) => void, min = -1, max = 2) => (
+                      <div key={label}>
+                        <div className="flex justify-between text-[8px] text-white/30 uppercase mb-0.5"><span>{label}</span><span>{val.toFixed(3)}</span></div>
+                        <input type="range" min={min} max={max} step={0.001} value={val} onChange={e => onChange(+e.target.value)} className="w-full accent-white h-1" />
+                      </div>
+                    );
+                    return (
+                      <div key={f.id} className="space-y-1.5 border-l-2 pl-2" style={{ borderColor: color }}>
+                        <p className="text-[9px] font-black uppercase" style={{ color }}>{f.name}</p>
+                        {row('X', f.mapping.x, v => updateFace(f.id, { mapping: { ...f.mapping, x: v } }))}
+                        {row('Y', f.mapping.y, v => updateFace(f.id, { mapping: { ...f.mapping, y: v } }))}
+                        {row('W', f.mapping.w, v => updateFace(f.id, { mapping: { ...f.mapping, w: Math.max(0.01, v) } }), 0.01, 2)}
+                        {row('H', f.mapping.h, v => updateFace(f.id, { mapping: { ...f.mapping, h: Math.max(0.01, v) } }), 0.01, 2)}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
