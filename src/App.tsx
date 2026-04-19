@@ -266,7 +266,8 @@ export default function App() {
 
   // ─── React State ───────────────────────────────────────────────────────────
   const [autoOrbit, setAutoOrbit] = useState(false);
-  const [autoOrbitSpeed, setAutoOrbitSpeed] = useState(0.6);
+  const [autoOrbitSpeed, setAutoOrbitSpeed] = useState(2.0);
+  const autoOrbitSpeedRef = useRef(2.0);
   const [cameraList, setCameraList] = useState<MediaDeviceInfo[]>([]);
   const [selectedCamId, setSelectedCamId] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
@@ -281,7 +282,7 @@ export default function App() {
   const [showEstructuraPanel, setShowEstructuraPanel] = useState(true);
   const [showResolucionPanel, setShowResolucionPanel] = useState(true);
   const [cubeDims, setCubeDims] = useState({ w: 3.6, h: 3.6, d: 3.6 });
-  const [rigStyle, setRigStyle] = useState<'pipe' | 'truss'>('pipe');
+  const [rigStyle, setRigStyle] = useState<'pipe' | 'truss'>('truss');
   const [activeLightTab, setActiveLightTab] = useState(0);
   const [chaserActive, setChaserActive] = useState(false);
   const [chaserBpm, setChaserBpm] = useState(120);
@@ -300,10 +301,10 @@ export default function App() {
   const faceDragRef = useRef<{ faceId: number; startMouseX: number; startMouseY: number; startMX: number; startMY: number; mW: number; mH: number } | null>(null);
 
   const [faces, setFaces] = useState<FaceConfig[]>([
-    { id: 0, name: '2_izq', scene: 'camera', cameraSegment: 0, mapping: { x: 0.00, y: 0, w: 0.25, h: 1 }, params: { text: '*404*', motion: 'elegant', colorMode: 'bw' }, resolution: { w: 1080, h: 1080 } },
-    { id: 1, name: '3_der', scene: 'camera', cameraSegment: 1, mapping: { x: 0.25, y: 0, w: 0.25, h: 1 }, params: { density: 1 }, resolution: { w: 1080, h: 1080 } },
-    { id: 2, name: '4_der_back', scene: 'camera', cameraSegment: 2, mapping: { x: 0.50, y: 0, w: 0.25, h: 1 }, params: { scale: 1 }, resolution: { w: 1080, h: 1080 } },
-    { id: 3, name: '1_izq_back', scene: 'camera', cameraSegment: 3, mapping: { x: 0.75, y: 0, w: 0.25, h: 1 }, params: {}, resolution: { w: 1080, h: 1080 } },
+    { id: 0, name: 'izq_frente', scene: 'camera', cameraSegment: 0, mapping: { x: 0.00, y: 0, w: 0.25, h: 1 }, params: { text: '*404*', motion: 'elegant', colorMode: 'bw' }, resolution: { w: 1080, h: 1080 } },
+    { id: 1, name: 'der_back', scene: 'camera', cameraSegment: 1, mapping: { x: 0.25, y: 0, w: 0.25, h: 1 }, params: { density: 1 }, resolution: { w: 1080, h: 1080 } },
+    { id: 2, name: 'der_frente', scene: 'camera', cameraSegment: 2, mapping: { x: 0.50, y: 0, w: 0.25, h: 1 }, params: { scale: 1 }, resolution: { w: 1080, h: 1080 } },
+    { id: 3, name: 'izq_back', scene: 'camera', cameraSegment: 3, mapping: { x: 0.75, y: 0, w: 0.25, h: 1 }, params: {}, resolution: { w: 1080, h: 1080 } },
   ]);
 
   const [lights, setLights] = useState<LightConfig[]>([
@@ -315,6 +316,7 @@ export default function App() {
 
   // Keep refs in sync
   useEffect(() => { autoOrbitRef.current = autoOrbit; }, [autoOrbit]);
+  useEffect(() => { autoOrbitSpeedRef.current = autoOrbitSpeed; }, [autoOrbitSpeed]);
   useEffect(() => { lightsRef.current = lights; }, [lights]);
   useEffect(() => { facesRef.current = faces; }, [faces]);
   useEffect(() => { ledCountRef.current = ledCountGlobal; }, [ledCountGlobal]);
@@ -762,7 +764,7 @@ export default function App() {
       const time = clockRef.current.getElapsedTime();
       const ctrl = orbitRef.current!;
       ctrl.autoRotate = autoOrbitRef.current;
-      ctrl.autoRotateSpeed = autoOrbitSpeed; // Direct usage or via ref
+      ctrl.autoRotateSpeed = autoOrbitSpeedRef.current; // Direct usage or via ref
       ctrl.update();
 
       // Scale face meshes to cubeDims
@@ -988,7 +990,7 @@ export default function App() {
     }
     const group = new THREE.Group();
     const cd = cubeDims;
-    const HW = cd.w / 2, HH = cd.h / 2, HD = cd.d / 2;
+    const HW = (cd.w / 2) - 0.15, HH = (cd.h / 2) - 0.15, HD = (cd.d / 2) - 0.15;
     const FY = -HH - 0.12;
 
     if (rigStyle === 'pipe') {
@@ -1305,7 +1307,7 @@ export default function App() {
 
       {/* Top-right controls */}
       <div className="absolute top-4 right-4 flex flex-col items-end gap-2" style={{ zIndex: 10 }} onPointerDown={e => e.stopPropagation()}>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 items-end">
           <button
             className={`text-xs px-3 py-1.5 rounded border transition-all flex items-center gap-2 ${autoOrbit ? 'text-black font-bold border-transparent' : 'border-green-500 text-green-500'}`}
             style={autoOrbit ? { background: '#00FF85' } : {}}
@@ -1314,7 +1316,7 @@ export default function App() {
             <div className={`w-2 h-2 rounded-full ${autoOrbit ? 'bg-black animate-pulse' : 'bg-gray-600'}`}></div>
             <span>⟳ Auto Orbit</span>
           </button>
-          <button className="btn-secondary text-xs" onClick={resetCamera}>⌂ Reset Cam</button>
+          <button className="btn-secondary text-xs w-full" onClick={resetCamera}>⌂ Reset Cam</button>
         </div>
 
         {autoOrbit && (
@@ -1324,7 +1326,7 @@ export default function App() {
               <span className="text-[10px] text-blue-400 font-mono">{autoOrbitSpeed.toFixed(1)}x</span>
             </div>
             <input
-              type="range" min={-5} max={5} step={0.1} value={autoOrbitSpeed}
+              type="range" min={-20} max={20} step={0.1} value={autoOrbitSpeed}
               onChange={e => setAutoOrbitSpeed(+e.target.value)}
               className="w-full h-1 accent-[#00FF85]"
             />
@@ -1339,67 +1341,69 @@ export default function App() {
 
       {/* ── LEFT SIDEBAR (Escenas + Luces) ── */}
       <div className="absolute top-16 left-4 flex flex-col gap-2" style={{ zIndex: 10 }} onPointerDown={e => e.stopPropagation()}>
+        {/* PANEL: Cámara Virtual (Independent) */}
         <div>
           <button
-            className="btn-secondary text-xs mb-1"
+            className="btn-secondary text-xs mb-1 w-full flex justify-between"
+            onClick={() => setShowCameraSection(v => !v)}
+          >
+            <span style={{ color: '#00FF85', fontWeight: 'bold' }}>📹 CÁMARA VIRTUAL</span>
+            <span>{showCameraSection ? '▼' : '▶'}</span>
+          </button>
+          
+          {showCameraSection && (
+            <div className="control-panel p-3 mb-2" style={{ width: 256 }}>
+              <select
+                className="w-full text-xs rounded p-1 mb-2"
+                style={{ background: '#111', color: '#ccc', border: '1px solid #444' }}
+                value={selectedCamId}
+                onChange={e => setSelectedCamId(e.target.value)}
+              >
+                {cameraList.length === 0 && <option>— sin cámaras detectadas —</option>}
+                {cameraList.map(c => (
+                  <option key={c.deviceId} value={c.deviceId}>
+                    {c.label || `Cam ${c.deviceId.slice(0, 8)}…`}
+                  </option>
+                ))}
+              </select>
+              <button
+                className={`w-full text-xs py-1.5 rounded font-bold mb-3 ${cameraActive ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={cameraActive ? stopCamera : startCamera}
+              >{cameraActive ? '⏹ Detener Cámara' : '▶ Iniciar Cámara'}</button>
+              
+              {/* Local file input - Improved UI */}
+              <div className="border border-dashed border-gray-600 rounded p-4 text-center hover:border-gray-400 bg-black/40 transition-colors relative cursor-pointer group">
+                <p className="text-[10px] text-gray-400 font-bold group-hover:text-white uppercase tracking-widest mb-1">📁 Cargar Archivo</p>
+                <p className="text-[8px] text-gray-500">Video (.mp4) o Imagen (.png)</p>
+                <input
+                  type="file"
+                  accept="video/*,image/*"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileInput(file);
+                  }}
+                />
+              </div>
+
+              {cameraActive && (
+                <div className="mt-3 text-center p-2 bg-black/30 rounded border border-green-500/20">
+                  <p className="text-xs font-bold" style={{ color: '#00FF85' }}>● Cámara activa</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Resolución: {cameraResolution.w}×{cameraResolution.h}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <button
+            className="btn-secondary text-xs mb-1 w-full text-left"
             onClick={() => setShowFacePanel(v => !v)}
           >{showFacePanel ? '▼' : '▶'} Escenas</button>
 
           {showFacePanel && (
             <div className="control-panel p-3" style={{ width: 256 }}>
-              {/* Camera Virtual selector - collapsible */}
-              <div className="mb-3 pb-3" style={{ borderBottom: '1px solid #333' }}>
-                <button
-                  className="w-full text-left text-xs font-bold mb-2 flex items-center justify-between"
-                  style={{ color: '#00FF85', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                  onClick={() => setShowCameraSection(v => !v)}
-                >
-                  <span>📹 CÁMARA VIRTUAL</span>
-                  <span style={{ color: '#555' }}>{showCameraSection ? '▼' : '▶'}</span>
-                </button>
-                {showCameraSection && (
-                  <>
-                    <select
-                      className="w-full text-xs rounded p-1 mb-2"
-                      style={{ background: '#111', color: '#ccc', border: '1px solid #444' }}
-                      value={selectedCamId}
-                      onChange={e => setSelectedCamId(e.target.value)}
-                    >
-                      {cameraList.length === 0 && <option>— sin cámaras detectadas —</option>}
-                      {cameraList.map(c => (
-                        <option key={c.deviceId} value={c.deviceId}>
-                          {c.label || `Cam ${c.deviceId.slice(0, 8)}…`}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      className={`w-full text-xs py-1.5 rounded font-bold ${cameraActive ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={cameraActive ? stopCamera : startCamera}
-                    >{cameraActive ? '⏹ Detener Cámara' : '▶ Iniciar Cámara'}</button>
-                    {/* Local file input */}
-                    <div className="mt-2">
-                      <label className="text-[9px] text-gray-500 uppercase block mb-1">📁 Archivo Local (Video/Imagen)</label>
-                      <input
-                        type="file"
-                        accept="video/*,image/*"
-                        className="w-full text-[9px] text-gray-400"
-                        style={{ background: '#0a0a0a', border: '1px solid #333', borderRadius: 4, padding: '2px 4px' }}
-                        onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileInput(file);
-                        }}
-                      />
-                    </div>
-                    {cameraActive && (
-                      <div className="mt-2 text-center">
-                        <p className="text-xs" style={{ color: '#00FF85' }}>● Cámara activa</p>
-                        <p className="text-[10px] text-gray-500">Resolución: {cameraResolution.w}×{cameraResolution.h}</p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
               {/* Global Intensity */}
               <div className="mb-3 pb-3" style={{ borderBottom: '1px solid #333' }}>
                 <div className="flex justify-between items-center mb-1">
@@ -1417,7 +1421,12 @@ export default function App() {
               {/* Per-face scene selector */}
               {faces.map(face => (
                 <div key={face.id} className="mb-3">
-                  <p className="text-xs mb-1" style={{ color: '#888' }}>{face.name}</p>
+                  <input 
+                    className="w-full text-xs mb-1 bg-transparent border-b border-transparent hover:border-gray-800 focus:border-gray-500 focus:outline-none transition-colors" 
+                    style={{ color: '#888' }} 
+                    value={face.name}
+                    onChange={e => updateFace(face.id, { name: e.target.value })}
+                  />
                   <select
                     className="w-full text-xs rounded p-1"
                     style={{ background: '#111', color: '#ccc', border: '1px solid #444' }}
@@ -1678,7 +1687,7 @@ export default function App() {
       </div>
 
       {/* ── RIGHT FLOATING PANELS ── */}
-      <div className="absolute top-16 right-4 flex flex-col gap-2" style={{ zIndex: 10 }} onPointerDown={e => e.stopPropagation()}>
+      <div className="absolute right-4 flex flex-col items-end gap-2 transition-all duration-300" style={{ zIndex: 10, top: autoOrbit ? '7.5rem' : '4rem' }} onPointerDown={e => e.stopPropagation()}>
 
         {/* Panel A — Estructura */}
         <div>
@@ -1794,14 +1803,18 @@ export default function App() {
                 <div className="text-[9px] text-green-400 font-mono">{recInputW} × {recInputH}</div>
               </div>
 
-              <button
-                className="mt-3 w-full text-[10px] py-1 border border-gray-700 rounded hover:bg-gray-800 text-gray-400"
-                onClick={() => setShowMappingUI(true)}
-              >
-                ⚙ Configurar Mapeo
-              </button>
             </div>
           )}
+        </div>
+
+        {/* Panel C — Mapeo */}
+        <div>
+          <button
+            className="w-full text-[10px] p-2 border border-green-800/50 rounded bg-green-900/20 hover:bg-green-800/40 text-green-400 font-bold uppercase transition-colors flex justify-center items-center gap-2"
+            onClick={() => setShowMappingUI(true)}
+          >
+            ⚙ Configurar Mapeo
+          </button>
         </div>
       </div>
 
@@ -1859,7 +1872,7 @@ export default function App() {
                 <span><span className="text-white/20 uppercase">Total px:</span> <span className="text-green-400 font-mono">{totalPixels.toLocaleString()}</span></span>
               </div>
               <div className="flex gap-3 flex-wrap">
-                {faces.map(f => (
+                {[faces.find(f => f.id === 3), faces.find(f => f.id === 0), faces.find(f => f.id === 2), faces.find(f => f.id === 1)].filter((f): f is FaceConfig => !!f).map(f => (
                   <span key={f.id} className="font-mono">{f.name}: <span className="text-white/60">{f.resolution.w}×{f.resolution.h}</span></span>
                 ))}
               </div>
@@ -1899,7 +1912,7 @@ export default function App() {
 
               {/* Draggable segment overlays */}
               <div className="absolute inset-0">
-                {faces.map((face, index) => {
+                {[faces.find(f => f.id === 3), faces.find(f => f.id === 0), faces.find(f => f.id === 2), faces.find(f => f.id === 1)].filter((f): f is FaceConfig => !!f).map((face, index) => {
                   const color = index === 0 ? '#ff0066' : index === 1 ? '#00ff85' : index === 2 ? '#0066ff' : '#ffff00';
                   return (
                     <div
