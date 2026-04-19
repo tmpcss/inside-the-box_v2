@@ -29,6 +29,7 @@ interface LightConfig {
   z: number;
   rotX: number; // degrees
   rotY: number; // degrees
+  ledCount?: number;
 }
 
 interface LightObjects {
@@ -268,6 +269,7 @@ export default function App() {
   const facesRef = useRef<FaceConfig[]>([]);
   const ledCountRef = useRef(12);
   const cameraScaleRef = useRef(1.0);
+  const offFaceOpacityRef = useRef(1.0);
   const previewCanvasesRef = useRef<Map<number, HTMLCanvasElement>>(new Map());
 
   // ─── React State ───────────────────────────────────────────────────────────
@@ -281,7 +283,7 @@ export default function App() {
   const [cameraScale, setCameraScale] = useState(1.0);
   const [showMappingUI, setShowMappingUI] = useState(false);
   const [offFaceOpacity, setOffFaceOpacity] = useState(1.0);
-  const [ledCountGlobal, setLedCountGlobal] = useState(12);
+  const [ledCountGlobal] = useState(12);
   const [showFacePanel, setShowFacePanel] = useState(false);
   const [showLightPanel, setShowLightPanel] = useState(false);
   const [showCameraSection, setShowCameraSection] = useState(false);
@@ -293,6 +295,8 @@ export default function App() {
   const [chaserActive, setChaserActive] = useState(false);
   const [chaserBpm, setChaserBpm] = useState(120);
   const [syncScene, setSyncScene] = useState<SceneType>('gradient');
+  const [lightsAllOff, setLightsAllOff] = useState(false);
+  const lightsAllOffRef = useRef(false);
   const chaserActiveRef = useRef(false);
   const chaserBpmRef = useRef(120);
 
@@ -319,10 +323,10 @@ export default function App() {
   });
 
   const [lights, setLights] = useState<LightConfig[]>([
-    { id: 0, name: 'Light A', color: '#ff0066', intensity: 2, strobe: false, strobeHz: 3, type: 'point', x: -0.8, y: 0.8, z: 0.8, rotX: -45, rotY: 0 },
-    { id: 1, name: 'Light B', color: '#00ff85', intensity: 2, strobe: false, strobeHz: 3, type: 'point', x: 0.8, y: 0.8, z: 0.8, rotX: -45, rotY: 90 },
-    { id: 2, name: 'Light C', color: '#0066ff', intensity: 2, strobe: false, strobeHz: 3, type: 'point', x: 0.8, y: 0.8, z: -0.8, rotX: -45, rotY: 180 },
-    { id: 3, name: 'Light D', color: '#ffffff', intensity: 1.5, strobe: false, strobeHz: 3, type: 'point', x: -0.8, y: 0.8, z: -0.8, rotX: -45, rotY: 270 },
+    { id: 0, name: 'Light A', color: '#ff0066', intensity: 2, strobe: false, strobeHz: 3, type: 'spot', x: -0.5, y: 0.3, z: 0.5, rotX: -20, rotY: 180, ledCount: 12 },
+    { id: 1, name: 'Light B', color: '#00ff85', intensity: 2, strobe: false, strobeHz: 3, type: 'spot', x: 0.5, y: 0.3, z: 0.5, rotX: -20, rotY: 90, ledCount: 12 },
+    { id: 2, name: 'Light C', color: '#0066ff', intensity: 2, strobe: false, strobeHz: 3, type: 'spot', x: 0.5, y: 0.3, z: -0.5, rotX: -20, rotY: 0, ledCount: 12 },
+    { id: 3, name: 'Light D', color: '#ffffff', intensity: 1.5, strobe: false, strobeHz: 3, type: 'spot', x: -0.5, y: 0.3, z: -0.5, rotX: -20, rotY: 270, ledCount: 12 },
   ]);
 
   // Keep refs in sync
@@ -370,6 +374,8 @@ export default function App() {
   useEffect(() => { chaserActiveRef.current = chaserActive; }, [chaserActive]);
   useEffect(() => { chaserBpmRef.current = chaserBpm; }, [chaserBpm]);
   useEffect(() => { cubeDimsRef.current = cubeDims; }, [cubeDims]);
+  useEffect(() => { offFaceOpacityRef.current = offFaceOpacity; }, [offFaceOpacity]);
+  useEffect(() => { lightsAllOffRef.current = lightsAllOff; }, [lightsAllOff]);
 
   // ─── Preview thumbnails rAF loop ──────────────────────────────────────────
   useEffect(() => {
@@ -804,18 +810,33 @@ export default function App() {
     const helperGeo = new THREE.SphereGeometry(0.06, 12, 12);
     lightObjsRef.current = [];
 
-    lightsRef.current.forEach(cfg => {
-      const light = new THREE.PointLight(new THREE.Color(cfg.color).getHex(), cfg.intensity, 8);
-      light.position.set(cfg.x, cfg.y, cfg.z);
-      light.castShadow = true;
-      scene.add(light);
-
+    lightsRef.current.forEach((cfg, idx) => {
       const hMat = new THREE.MeshBasicMaterial({ color: cfg.color, toneMapped: false });
       const hMesh = new THREE.Mesh(helperGeo, hMat);
       hMesh.position.set(cfg.x, cfg.y, cfg.z);
       scene.add(hMesh);
 
-      lightObjsRef.current.push({ threeLight: light, helperMesh: hMesh, helperMat: hMat });
+      if (cfg.type === 'spot') {
+        const spot = new THREE.SpotLight(cfg.color, cfg.intensity);
+        spot.position.set(cfg.x, cfg.y, cfg.z);
+        spot.angle = Math.PI / 7;
+        spot.penumbra = 0.25;
+        spot.distance = 10;
+        spot.castShadow = true;
+        scene.add(spot);
+        scene.add(spot.target);
+        hMesh.visible = false;
+        const spotHelper = new THREE.SpotLightHelper(spot);
+        scene.add(spotHelper);
+        lightObjsRef.current.push({ threeLight: spot, helperMesh: hMesh, helperMat: hMat, spotHelper });
+      } else {
+        const light = new THREE.PointLight(new THREE.Color(cfg.color).getHex(), cfg.intensity, 8);
+        light.position.set(cfg.x, cfg.y, cfg.z);
+        light.castShadow = true;
+        scene.add(light);
+        lightObjsRef.current.push({ threeLight: light, helperMesh: hMesh, helperMat: hMat });
+      }
+      void idx;
     });
 
     scene.add(new THREE.AmbientLight(0x222222));
@@ -866,48 +887,56 @@ export default function App() {
         const mat = faceMatsRef.current[i];
         if (!fd || !mat) return;
 
-        // --- Software lighting: compute color contribution to this face ---
+        // --- Software lighting: realistic interior-light-on-projection-screen ---
         const fc = FC[i] ?? [0, 0, 0];
         let lr = 0, lg = 0, lb = 0;
 
-        lightsRef.current.forEach(lCfg => {
-          const hz = lCfg.strobeHz ?? 3;
-          const strobeOn = !lCfg.strobe || Math.sin(time * hz * Math.PI * 2) > 0;
-          if (!strobeOn) return;
+        if (!lightsAllOffRef.current) {
+          lightsRef.current.forEach(lCfg => {
+            const hz = lCfg.strobeHz ?? 3;
+            const strobeOn = !lCfg.strobe || Math.sin(time * hz * Math.PI * 2) > 0;
+            if (!strobeOn) return;
 
-          const hex = parseInt(lCfg.color.replace('#', ''), 16);
-          const cr = ((hex >> 16) & 0xff) / 255;
-          const cg = ((hex >> 8) & 0xff) / 255;
-          const cb = (hex & 0xff) / 255;
+            const hex = parseInt(lCfg.color.replace('#', ''), 16);
+            const cr = ((hex >> 16) & 0xff) / 255;
+            const cg = ((hex >> 8) & 0xff) / 255;
+            const cb = (hex & 0xff) / 255;
 
-          const vx = fc[0] - lCfg.x, vy = fc[1] - lCfg.y, vz = fc[2] - lCfg.z;
-          const dist = Math.sqrt(vx * vx + vy * vy + vz * vz) || 0.001;
-          const vnx = vx / dist, vny = vy / dist, vnz = vz / dist;
+            const vx = fc[0] - lCfg.x, vy = fc[1] - lCfg.y, vz = fc[2] - lCfg.z;
+            const dist = Math.sqrt(vx * vx + vy * vy + vz * vz) || 0.001;
+            const vnx = vx / dist, vny = vy / dist, vnz = vz / dist;
 
-          let s = lCfg.intensity / (1 + dist * 0.9);
+            // Quadratic attenuation – lights inside a ≈3.6m cube
+            let s = (lCfg.intensity * 0.55) / (0.3 + dist * dist * 0.7);
 
-          if (lCfg.type === 'spot') {
-            const rx = (lCfg.rotX * Math.PI) / 180;
-            const ry = (lCfg.rotY * Math.PI) / 180;
-            const dx = Math.sin(ry) * Math.cos(rx);
-            const dy = -Math.cos(rx);
-            const dz = Math.cos(ry) * Math.cos(rx);
-            const dot = dx * vnx + dy * vny + dz * vnz;
-            if (dot < COS_SPOT) return;
-            s *= (dot - COS_SPOT) / (1 - COS_SPOT);
-          }
+            if (lCfg.type === 'spot') {
+              const rx = (lCfg.rotX * Math.PI) / 180;
+              const ry = (lCfg.rotY * Math.PI) / 180;
+              const dx = Math.sin(ry) * Math.cos(rx);
+              const dy = -Math.cos(rx);
+              const dz = Math.cos(ry) * Math.cos(rx);
+              const dot = dx * vnx + dy * vny + dz * vnz;
+              if (dot < COS_SPOT) return;
+              s *= (dot - COS_SPOT) / (1 - COS_SPOT);
+            }
 
-          s = Math.min(s * 0.45, 0.8);
-          lr += cr * s; lg += cg * s; lb += cb * s;
-        });
+            lr += cr * s; lg += cg * s; lb += cb * s;
+          });
+        }
 
-        // Emissive = base white (25%) + light color contribution
-        mat.emissive.setRGB(
-          Math.min(1, 0.25 + lr),
-          Math.min(1, 0.25 + lg),
-          Math.min(1, 0.25 + lb),
-        );
-        mat.emissiveIntensity = 1.0;
+        // Mix: white (full projection) → tinted toward light color as intensity grows.
+        // This simulates interior light bleeding through the projected screen fabric.
+        const lightPow = Math.sqrt(lr * lr + lg * lg + lb * lb);
+        let er = 1, eg = 1, eb = 1;
+        if (lightPow > 0.02) {
+          const nr = lr / lightPow, ng = lg / lightPow, nb = lb / lightPow;
+          const blend = Math.min(0.98, lightPow * 0.5);
+          er = 1 - blend + nr * blend;
+          eg = 1 - blend + ng * blend;
+          eb = 1 - blend + nb * blend;
+        }
+        mat.emissive.setRGB(er, eg, eb);
+        mat.emissiveIntensity = offFaceOpacityRef.current;
 
         // Skip canvas redraw for active camera (uses VideoTexture directly)
         if (face.scene === 'camera' && cameraActive) return;
@@ -955,13 +984,14 @@ export default function App() {
         helperMesh.position.set(cfg.x, cfg.y, cfg.z);
         threeLight.color.set(cfg.color);
 
-        // Chasers override: only one light on at a time, sequentially
-        if (chaserActiveRef.current) {
+        // Global blackout override
+        if (lightsAllOffRef.current) {
+          threeLight.intensity = 0;
+        } else if (chaserActiveRef.current) {
           const beatDuration = 60 / chaserBpmRef.current;
           const activeIdx = Math.floor(time / beatDuration) % lightsRef.current.length;
           threeLight.intensity = i === activeIdx ? cfg.intensity : 0;
         } else {
-          // Strobe uses per-light Hz
           const hz = cfg.strobeHz ?? 3;
           const activeIntensity = cfg.strobe
             ? (Math.sin(time * hz * Math.PI * 2) > 0 ? cfg.intensity * 2 : 0)
@@ -1275,28 +1305,38 @@ export default function App() {
       scene3.add(newSpotHelper);
 
     } else if (type === 'led') {
-      // Titan Tube: N LED spheres in a horizontal line
-      const group = new THREE.Group();
-      group.position.set(cfg.x, cfg.y, cfg.z);
-      const tubeLen = BASE_CUBE_SIZE * 0.78;
+      // Vertical LED strip on inner truss chord
+      const cd = cubeDimsRef.current;
+      const HW = cd.w / 2, HH = cd.h / 2, HD = cd.d / 2; void HH;
+      const th = 0.10;
+      const edgePositions: [number, number, number][] = [
+        [-HW + th, 0,  HD - th],
+        [ HW - th, 0,  HD - th],
+        [ HW - th, 0, -HD + th],
+        [-HW + th, 0, -HD + th],
+      ];
+      const [ex, , ez] = edgePositions[index % 4];
 
-      // Tube body
-      const tbGeo = new THREE.CylinderGeometry(0.018, 0.018, tubeLen, 8);
-      tbGeo.rotateZ(Math.PI / 2);
+      const group = new THREE.Group();
+      group.position.set(ex, 0, ez);
+      const stripLen = cd.h * 0.92;
+      const nLedStrip = cfg.ledCount ?? nLed;
+
+      // Tube body (vertical)
+      const tbGeo = new THREE.CylinderGeometry(0.018, 0.018, stripLen, 8);
       group.add(new THREE.Mesh(tbGeo, new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.7, roughness: 0.3 })));
 
-      // LED spheres + lights
+      // LED spheres + lights (vertical, along Y)
       const ledGeo = new THREE.SphereGeometry(0.028, 8, 8);
-      for (let k = 0; k < nLed; k++) {
-        const xOff = (k / (nLed - 1) - 0.5) * tubeLen;
+      for (let k = 0; k < nLedStrip; k++) {
+        const yOff = (k / Math.max(1, nLedStrip - 1) - 0.5) * stripLen;
         const ledMat = new THREE.MeshBasicMaterial({ color: cfg.color, toneMapped: false });
         const ledMesh = new THREE.Mesh(ledGeo, ledMat);
-        ledMesh.position.set(xOff, 0, 0);
+        ledMesh.position.set(0, yOff, 0);
         group.add(ledMesh);
-        // 1 PointLight every 3 LEDs for perf
         if (k % 3 === 0) {
-          const lgt = new THREE.PointLight(cfg.color, cfg.intensity * 0.25, 3.5);
-          lgt.position.set(xOff, 0, 0);
+          const lgt = new THREE.PointLight(cfg.color, cfg.intensity * 0.3, 4);
+          lgt.position.set(0, yOff, 0);
           group.add(lgt);
         }
       }
@@ -1304,11 +1344,16 @@ export default function App() {
       newLedGroup = group;
       lo.helperMesh.visible = false;
 
-      // Single fill light
-      const pt = new THREE.PointLight(cfg.color, cfg.intensity * 0.4, 8);
-      pt.position.set(cfg.x, cfg.y, cfg.z);
+      // Fill point light at strip center
+      const pt = new THREE.PointLight(cfg.color, cfg.intensity * 0.5, 10);
+      pt.position.set(ex, 0, ez);
       scene3.add(pt);
       newLight = pt;
+
+      // Update state position to edge
+      setLights(prev => prev.map((l, li) => li === index ? { ...l, type, x: ex, y: 0, z: ez } : l));
+      lightObjsRef.current[index] = { threeLight: newLight, helperMesh: lo.helperMesh, helperMat: lo.helperMat, ledGroup: newLedGroup };
+      return;
 
     } else {
       const pt = new THREE.PointLight(cfg.color, cfg.intensity, 8);
@@ -1668,53 +1713,53 @@ export default function App() {
 
           {showLightPanel && (
             <div className="control-panel p-3" style={{ width: 256 }}>
-              {/* Chasers */}
-              <div className="mb-3 pb-3" style={{ borderBottom: '1px solid #222' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <button
-                    className="flex-1 text-xs py-1.5 rounded font-bold transition-all"
-                    style={{
-                      background: chaserActive ? '#00FF85' : '#1a1a1a',
-                      color: chaserActive ? '#000' : '#555',
-                      border: chaserActive ? 'none' : '1px solid #333',
-                    }}
-                    onClick={() => setChaserActive(v => !v)}
-                  >⚡ CHASERS</button>
+
+              {/* ── Master controls row ── */}
+              <div className="flex gap-1.5 mb-3">
+                {/* All ON/OFF */}
+                <button
+                  className="flex-1 text-xs py-1.5 rounded font-bold transition-all"
+                  style={{
+                    background: lightsAllOff ? '#ff3333' : '#1a1a1a',
+                    color: lightsAllOff ? '#fff' : '#555',
+                    border: lightsAllOff ? 'none' : '1px solid #333',
+                  }}
+                  onClick={() => setLightsAllOff(v => !v)}
+                >{lightsAllOff ? '🔴 APAGADO' : '⚡ ENCENDIDO'}</button>
+                {/* Chasers */}
+                <button
+                  className="flex-1 text-xs py-1.5 rounded font-bold transition-all"
+                  style={{
+                    background: chaserActive ? '#00FF85' : '#1a1a1a',
+                    color: chaserActive ? '#000' : '#555',
+                    border: chaserActive ? 'none' : '1px solid #333',
+                  }}
+                  onClick={() => setChaserActive(v => !v)}
+                >⚡ CHASE</button>
+              </div>
+              {chaserActive && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[9px] text-gray-500 uppercase w-8">BPM</span>
+                  <input type="range" min={30} max={300} step={1} value={chaserBpm}
+                    onChange={e => setChaserBpm(+e.target.value)}
+                    className="flex-1 h-1 accent-[#00FF85]" />
+                  <input type="number" min={30} max={300} value={chaserBpm}
+                    onChange={e => setChaserBpm(Math.max(30, Math.min(300, +e.target.value || 30)))}
+                    className="text-[9px] bg-black border border-white/10 rounded px-1 py-0.5 text-green-400 font-mono"
+                    style={{ width: 44 }} />
                 </div>
-                {chaserActive && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] text-gray-500 uppercase w-8">BPM</span>
-                    <input type="range" min={30} max={300} step={1} value={chaserBpm}
-                      onChange={e => setChaserBpm(+e.target.value)}
-                      className="flex-1 h-1 accent-[#00FF85]" />
-                    <span className="text-[9px] text-green-400 font-mono w-8 text-right">{chaserBpm}</span>
-                  </div>
-                )}
-              </div>
+              )}
 
-              {/* LED count */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[9px] text-gray-500 uppercase w-8">LEDs</span>
-                <input type="range" min={4} max={24} value={ledCountGlobal}
-                  onChange={e => setLedCountGlobal(+e.target.value)}
-                  className="flex-1 h-1 accent-[#00FF85]" />
-                <span className="text-[9px] text-gray-400 font-mono w-8 text-right">{ledCountGlobal}</span>
-              </div>
-
-              {/* Tabs */}
+              {/* Light tabs */}
               <div className="flex gap-1 mb-3">
                 {lights.map((l, i) => {
-                  const typeEmoji = l.type === 'spot' ? '🔦' : l.type === 'led' ? '💫' : '💡';
+                  const typeEmoji = l.type === 'spot' ? '🔦' : l.type === 'led' ? '💡' : '💡';
                   return (
-                    <button
-                      key={i}
-                      className="flex-1 text-xs py-1 rounded"
+                    <button key={i} className="flex-1 text-xs py-1 rounded"
                       style={{
-                        background: l.color,
-                        color: '#000',
-                        fontWeight: 'bold',
+                        background: l.color, color: '#000', fontWeight: 'bold',
                         border: activeLightTab === i ? '2px solid #fff' : '2px solid transparent',
-                        opacity: Math.max(0.35, Math.min(1, l.intensity / 4)),
+                        opacity: lightsAllOff ? 0.2 : Math.max(0.35, Math.min(1, l.intensity / 4)),
                         whiteSpace: 'nowrap',
                       }}
                       onClick={() => setActiveLightTab(i)}
@@ -1727,6 +1772,14 @@ export default function App() {
                 const l = lights[activeLightTab];
                 if (!l) return null;
                 const i = activeLightTab;
+                const numInput = (val: number, min: number, max: number, step: number, key: string) => (
+                  <input
+                    type="number" min={min} max={max} step={step} value={val}
+                    onChange={e => updateLight(i, { [key]: Math.max(min, Math.min(max, +e.target.value || min)) })}
+                    className="text-[9px] bg-black border border-white/10 rounded px-1 py-0.5 text-green-400 font-mono"
+                    style={{ width: 50 }}
+                  />
+                );
                 return (
                   <div>
                     {/* Type selector */}
@@ -1740,7 +1793,7 @@ export default function App() {
                             border: l.type === t ? 'none' : '1px solid #333',
                           }}
                           onClick={() => switchLightType(i, t)}>
-                          {t === 'point' ? '💡 Point' : t === 'spot' ? '🔦 Spot' : '💫 Titan'}
+                          {t === 'point' ? '💡 Point' : t === 'spot' ? '🔦 Spot' : '💡 Leds'}
                         </button>
                       ))}
                     </div>
@@ -1749,19 +1802,33 @@ export default function App() {
                     <div className="flex items-center gap-2 mb-2">
                       <input type="color" value={l.color}
                         onChange={e => updateLight(i, { color: e.target.value })}
-                        className="cursor-pointer" style={{ width: 40, height: 32 }} />
+                        className="cursor-pointer" style={{ width: 36, height: 28 }} />
                       <div className="flex-1">
-                        <div className="flex justify-between">
-                          <label className="text-[9px] text-gray-500 uppercase">Intensidad</label>
-                          <span className="text-[9px] text-gray-400 font-mono">{l.intensity.toFixed(1)}</span>
+                        <label className="text-[9px] text-gray-500 uppercase block mb-0.5">Intensidad</label>
+                        <div className="flex items-center gap-1">
+                          <input type="range" min={0} max={10} step={0.1} value={l.intensity}
+                            onChange={e => updateLight(i, { intensity: +e.target.value })}
+                            className="flex-1 h-1 accent-[#00FF85]" />
+                          {numInput(l.intensity, 0, 10, 0.1, 'intensity')}
                         </div>
-                        <input type="range" min={0} max={10} step={0.1} value={l.intensity}
-                          onChange={e => updateLight(i, { intensity: +e.target.value })}
-                          className="w-full h-1 accent-[#00FF85]" />
                       </div>
                     </div>
 
-                    {/* Strobe + Hz */}
+                    {/* Per-light LED count (only for led type) */}
+                    {l.type === 'led' && (
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="text-[9px] text-gray-500 uppercase" style={{ minWidth: 28 }}>LEDs</span>
+                        <input type="range" min={2} max={48} step={1} value={l.ledCount ?? 12}
+                          onChange={e => {
+                            updateLight(i, { ledCount: +e.target.value });
+                            switchLightType(i, 'led');
+                          }}
+                          className="flex-1 h-1 accent-[#00FF85]" />
+                        {numInput(l.ledCount ?? 12, 2, 48, 1, 'ledCount')}
+                      </div>
+                    )}
+
+                    {/* Strobe */}
                     <div className="mb-3 space-y-1.5">
                       <div className="flex items-center gap-2">
                         <div className={`toggle-switch ${l.strobe ? 'active' : ''}`}
@@ -1769,47 +1836,43 @@ export default function App() {
                         <span className="text-[9px] text-gray-500 uppercase">Strobe</span>
                       </div>
                       {l.strobe && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <span className="text-[9px] text-gray-500 uppercase w-4">Hz</span>
                           <input type="range" min={0.5} max={20} step={0.5} value={l.strobeHz ?? 3}
                             onChange={e => updateLight(i, { strobeHz: +e.target.value })}
                             className="flex-1 h-1 accent-[#00FF85]" />
-                          <span className="text-[9px] text-green-400 font-mono w-8 text-right">{(l.strobeHz ?? 3).toFixed(1)}</span>
+                          {numInput(l.strobeHz ?? 3, 0.5, 20, 0.5, 'strobeHz')}
                         </div>
                       )}
                     </div>
 
-                    {/* Position */}
+                    {/* Position XYZ */}
                     <p className="text-[9px] text-gray-500 uppercase mb-1">Posición XYZ</p>
                     {(['x', 'y', 'z'] as const).map(ax => (
-                      <div key={ax} className="flex items-center gap-1.5 mb-1">
+                      <div key={ax} className="flex items-center gap-1 mb-1">
                         <span className="text-xs w-3 font-bold" style={{ color: ax === 'x' ? '#f66' : ax === 'y' ? '#6f6' : '#66f' }}>
                           {ax.toUpperCase()}
                         </span>
-                        <input type="range" min={-1.6} max={1.6} step={0.02} value={l[ax]}
+                        <input type="range" min={-2.5} max={2.5} step={0.02} value={l[ax]}
                           onChange={e => updateLight(i, { [ax]: +e.target.value })}
                           className="flex-1 h-1 accent-[#00FF85]" />
-                        <span className="text-[9px] text-gray-500 font-mono" style={{ minWidth: 32, textAlign: 'right' }}>
-                          {l[ax].toFixed(2)}
-                        </span>
+                        {numInput(l[ax], -2.5, 2.5, 0.01, ax)}
                       </div>
                     ))}
 
-                    {/* Rotation (spot + led only) */}
-                    {(l.type === 'spot' || l.type === 'led') && (
+                    {/* Rotation (spot only) */}
+                    {l.type === 'spot' && (
                       <>
                         <p className="text-[9px] text-gray-500 uppercase mb-1 mt-2">Rotación</p>
                         {(['rotX', 'rotY'] as const).map(ax => (
-                          <div key={ax} className="flex items-center gap-1.5 mb-1">
+                          <div key={ax} className="flex items-center gap-1 mb-1">
                             <span className="text-[9px] text-gray-500" style={{ minWidth: 28 }}>
                               {ax === 'rotX' ? 'TILT' : 'PAN'}
                             </span>
                             <input type="range" min={-180} max={180} step={1} value={l[ax]}
                               onChange={e => updateLight(i, { [ax]: +e.target.value })}
                               className="flex-1 h-1 accent-[#00FF85]" />
-                            <span className="text-[9px] text-gray-500 font-mono" style={{ minWidth: 32, textAlign: 'right' }}>
-                              {l[ax]}°
-                            </span>
+                            {numInput(l[ax], -180, 180, 1, ax)}
                           </div>
                         ))}
                       </>
