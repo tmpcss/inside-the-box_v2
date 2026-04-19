@@ -296,6 +296,7 @@ export default function App() {
   const [chaserBpm, setChaserBpm] = useState(120);
   const [syncScene, setSyncScene] = useState<SceneType>('gradient');
   const [lightsAllOff, setLightsAllOff] = useState(false);
+  const [showPreviews, setShowPreviews] = useState(true);
   const lightsAllOffRef = useRef(false);
   const chaserActiveRef = useRef(false);
   const chaserBpmRef = useRef(120);
@@ -312,8 +313,7 @@ export default function App() {
   const faceDragRef = useRef<{ faceId: number; startMouseX: number; startMouseY: number; startMX: number; startMY: number; mW: number; mH: number } | null>(null);
 
   const [faces, setFaces] = useState<FaceConfig[]>(() => {
-    const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
-    const initScene: SceneType = isMobile ? 'trailer' : 'camera';
+    const initScene: SceneType = 'trailer';
     return [
       { id: 0, name: 'izq_frente', scene: initScene, cameraSegment: 0, mapping: { x: 0.25, y: 0, w: 0.25, h: 1 }, params: { text: '*404*', motion: 'elegant', colorMode: 'bw' }, resolution: { w: 1080, h: 1080 } },
       { id: 1, name: 'der_back', scene: initScene, cameraSegment: 1, mapping: { x: 0.75, y: 0, w: 0.25, h: 1 }, params: { density: 1 }, resolution: { w: 1080, h: 1080 } },
@@ -1585,10 +1585,21 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Previews toggle */}
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[9px] text-gray-500 uppercase">Previews</span>
+                <button
+                  className="text-[8px] px-2 py-0.5 rounded border"
+                  style={{ borderColor: showPreviews ? '#00FF85' : '#333', color: showPreviews ? '#00FF85' : '#555', background: 'transparent' }}
+                  onClick={() => setShowPreviews(v => !v)}
+                >{showPreviews ? 'Ocultar' : 'Mostrar'}</button>
+              </div>
+
               {/* Per-face scene selector */}
               {faces.map(face => (
                 <div key={face.id} className="mb-3">
                   {/* Live preview thumbnail */}
+                  {showPreviews && (
                   <canvas
                     ref={el => {
                       if (el) previewCanvasesRef.current.set(face.id, el);
@@ -1598,6 +1609,7 @@ export default function App() {
                     className="rounded mb-1"
                     style={{ display: 'block', width: '50%', border: '1px solid rgba(255,255,255,0.08)', background: '#000' }}
                   />
+                  )}
                   <input
                     className="w-full text-xs mb-1 bg-transparent border-b border-transparent hover:border-gray-800 focus:border-gray-500 focus:outline-none transition-colors"
                     style={{ color: '#888' }}
