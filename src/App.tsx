@@ -1131,7 +1131,7 @@ export default function App() {
       vid.loop = true;
       vid.muted = true;
       vid.playsInline = true;
-      vid.play().catch(() => {});
+      vid.play().catch(() => { });
       const tex = new THREE.VideoTexture(vid);
       fileSourceRef.current = { type: 'video', el: vid, tex };
     } else if (file.type.startsWith('image/')) {
@@ -1302,25 +1302,27 @@ export default function App() {
       {/* Title */}
       <div className="absolute top-4 left-4 pointer-events-none" style={{ zIndex: 10 }}>
         <h1 className="text-2xl font-bold tracking-widest" style={{ color: '#00FF85' }}>INSIDE THE BOX</h1>
-        <p className="text-xs mt-0.5" style={{ color: '#444' }}>3D Stage Installation Visualizer</p>
+        <p className="text-xs mt-0.5" style={{ color: '#444' }}> Installation Visualizer</p>
       </div>
 
       {/* Top-right controls */}
-      <div className="absolute top-4 right-4 flex flex-col items-end gap-2" style={{ zIndex: 10 }} onPointerDown={e => e.stopPropagation()}>
-        <div className="flex flex-col gap-2 items-end">
+      <div className="absolute top-4 right-4 flex flex-col gap-2" style={{ zIndex: 10, width: 220 }} onPointerDown={e => e.stopPropagation()}>
+        <div className="flex flex-col gap-2 w-full">
           <button
-            className={`text-xs px-3 py-1.5 rounded border transition-all flex items-center gap-2 ${autoOrbit ? 'text-black font-bold border-transparent' : 'border-green-500 text-green-500'}`}
-            style={autoOrbit ? { background: '#00FF85' } : {}}
+            className={`btn-secondary text-xs w-full py-2 flex items-center justify-center gap-2 transition-all`}
+            style={autoOrbit ? { background: '#00FF85', color: '#000', border: '1px solid #00FF85', fontWeight: 'bold' } : {}}
             onClick={() => setAutoOrbit(v => !v)}
           >
             <div className={`w-2 h-2 rounded-full ${autoOrbit ? 'bg-black animate-pulse' : 'bg-gray-600'}`}></div>
-            <span>⟳ Auto Orbit</span>
+            <span className="font-bold tracking-widest">⟳ AUTO ORBIT</span>
           </button>
-          <button className="btn-secondary text-xs w-full" onClick={resetCamera}>⌂ Reset Cam</button>
+          <button className="btn-secondary text-xs w-full py-2 flex items-center justify-center font-bold tracking-widest" onClick={resetCamera}>
+            ⌂ RESET CAM
+          </button>
         </div>
 
         {autoOrbit && (
-          <div className="bg-black/80 backdrop-blur-md p-2 rounded border border-white/5 w-40">
+          <div className="bg-black/80 backdrop-blur-md p-2 rounded border border-white/5 w-full">
             <div className="flex justify-between items-center mb-1">
               <span className="text-[9px] text-gray-500 uppercase font-bold">Orbit Speed</span>
               <span className="text-[10px] text-blue-400 font-mono">{autoOrbitSpeed.toFixed(1)}x</span>
@@ -1340,17 +1342,25 @@ export default function App() {
       </div>
 
       {/* ── LEFT SIDEBAR (Escenas + Luces) ── */}
-      <div className="absolute top-16 left-4 flex flex-col gap-2" style={{ zIndex: 10 }} onPointerDown={e => e.stopPropagation()}>
+      <div className="absolute top-16 left-4 flex flex-col gap-2" style={{ zIndex: 10, width: 256 }} onPointerDown={e => e.stopPropagation()}>
+        {/* Mapeo Módulo */}
+        <button
+          className="w-full text-xs py-2 border border-green-800/50 rounded flex justify-center items-center bg-green-900/20 hover:bg-green-800/40 text-green-400 font-bold tracking-widest uppercase transition-colors"
+          onClick={() => setShowMappingUI(true)}
+        >
+          ⚙ MAPEO
+        </button>
+
         {/* PANEL: Cámara Virtual (Independent) */}
         <div>
           <button
-            className="btn-secondary text-xs mb-1 w-full flex justify-between"
+            className="btn-secondary text-xs mb-1 w-full flex items-center justify-center relative py-2"
             onClick={() => setShowCameraSection(v => !v)}
           >
-            <span style={{ color: '#00FF85', fontWeight: 'bold' }}>📹 CÁMARA VIRTUAL</span>
-            <span>{showCameraSection ? '▼' : '▶'}</span>
+            <span className="absolute left-3 text-gray-500">{showCameraSection ? '▼' : '▶'}</span>
+            <span style={{ color: '#00FF85', fontWeight: 'bold', letterSpacing: '0.1em' }}>📹 CÁMARA VIRTUAL</span>
           </button>
-          
+
           {showCameraSection && (
             <div className="control-panel p-3 mb-2" style={{ width: 256 }}>
               <select
@@ -1370,7 +1380,7 @@ export default function App() {
                 className={`w-full text-xs py-1.5 rounded font-bold mb-3 ${cameraActive ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={cameraActive ? stopCamera : startCamera}
               >{cameraActive ? '⏹ Detener Cámara' : '▶ Iniciar Cámara'}</button>
-              
+
               {/* Local file input - Improved UI */}
               <div className="border border-dashed border-gray-600 rounded p-4 text-center hover:border-gray-400 bg-black/40 transition-colors relative cursor-pointer group">
                 <p className="text-[10px] text-gray-400 font-bold group-hover:text-white uppercase tracking-widest mb-1">📁 Cargar Archivo</p>
@@ -1398,9 +1408,12 @@ export default function App() {
 
         <div>
           <button
-            className="btn-secondary text-xs mb-1 w-full text-left"
+            className="btn-secondary text-xs mb-1 w-full flex items-center justify-center relative py-2 font-bold tracking-widest uppercase"
             onClick={() => setShowFacePanel(v => !v)}
-          >{showFacePanel ? '▼' : '▶'} Escenas</button>
+          >
+            <span className="absolute left-3 text-gray-500">{showFacePanel ? '▼' : '▶'}</span>
+            ESCENAS
+          </button>
 
           {showFacePanel && (
             <div className="control-panel p-3" style={{ width: 256 }}>
@@ -1421,9 +1434,9 @@ export default function App() {
               {/* Per-face scene selector */}
               {faces.map(face => (
                 <div key={face.id} className="mb-3">
-                  <input 
-                    className="w-full text-xs mb-1 bg-transparent border-b border-transparent hover:border-gray-800 focus:border-gray-500 focus:outline-none transition-colors" 
-                    style={{ color: '#888' }} 
+                  <input
+                    className="w-full text-xs mb-1 bg-transparent border-b border-transparent hover:border-gray-800 focus:border-gray-500 focus:outline-none transition-colors"
+                    style={{ color: '#888' }}
                     value={face.name}
                     onChange={e => updateFace(face.id, { name: e.target.value })}
                   />
@@ -1526,8 +1539,12 @@ export default function App() {
 
         {/* ── LIGHT PANEL ── */}
         <div>
-          <button className="btn-secondary text-xs mb-1 w-full" onClick={() => setShowLightPanel(v => !v)}>
-            {showLightPanel ? '▼' : '▶'} Luces
+          <button 
+            className="btn-secondary text-xs mb-1 w-full flex items-center justify-center relative py-2 font-bold tracking-widest uppercase" 
+            onClick={() => setShowLightPanel(v => !v)}
+          >
+            <span className="absolute left-3 text-gray-500">{showLightPanel ? '▼' : '▶'}</span>
+            LUCES
           </button>
 
           {showLightPanel && (
@@ -1687,15 +1704,16 @@ export default function App() {
       </div>
 
       {/* ── RIGHT FLOATING PANELS ── */}
-      <div className="absolute right-4 flex flex-col items-end gap-2 transition-all duration-300" style={{ zIndex: 10, top: autoOrbit ? '7.5rem' : '4rem' }} onPointerDown={e => e.stopPropagation()}>
+      <div className="absolute right-4 flex flex-col gap-2 transition-all duration-300" style={{ zIndex: 10, width: 220, top: autoOrbit ? '9.5rem' : '6.5rem' }} onPointerDown={e => e.stopPropagation()}>
 
         {/* Panel A — Estructura */}
         <div>
           <button
-            className="btn-secondary text-xs mb-1 w-full"
+            className="btn-secondary text-xs mb-1 w-full flex items-center justify-center relative py-2 font-bold tracking-widest uppercase"
             onClick={() => setShowEstructuraPanel(v => !v)}
           >
-            {showEstructuraPanel ? '▼' : '▶'} Estructura
+            <span className="absolute left-3 text-gray-500">{showEstructuraPanel ? '▼' : '▶'}</span>
+            ESTRUCTURA
           </button>
           {showEstructuraPanel && (
             <div className="control-panel p-3" style={{ width: 220 }}>
@@ -1753,10 +1771,11 @@ export default function App() {
         {/* Panel B — Resolución */}
         <div>
           <button
-            className="btn-secondary text-xs mb-1 w-full"
+            className="btn-secondary text-xs mb-1 w-full flex items-center justify-center relative py-2 font-bold tracking-widest uppercase"
             onClick={() => setShowResolucionPanel(v => !v)}
           >
-            {showResolucionPanel ? '▼' : '▶'} Resolución
+            <span className="absolute left-3 text-gray-500">{showResolucionPanel ? '▼' : '▶'}</span>
+            RESOLUCIÓN
           </button>
           {showResolucionPanel && (
             <div className="control-panel p-3" style={{ width: 220 }}>
@@ -1807,15 +1826,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Panel C — Mapeo */}
-        <div>
-          <button
-            className="w-full text-[10px] p-2 border border-green-800/50 rounded bg-green-900/20 hover:bg-green-800/40 text-green-400 font-bold uppercase transition-colors flex justify-center items-center gap-2"
-            onClick={() => setShowMappingUI(true)}
-          >
-            ⚙ Configurar Mapeo
-          </button>
-        </div>
       </div>
 
       {/* ── MAPPING OVERLAY (FLOATING & GLASSMORPHIC) ── */}
