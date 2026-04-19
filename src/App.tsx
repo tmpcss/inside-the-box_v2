@@ -268,6 +268,7 @@ export default function App() {
   const facesRef = useRef<FaceConfig[]>([]);
   const ledCountRef = useRef(12);
   const cameraScaleRef = useRef(1.0);
+  const previewCanvasesRef = useRef<Map<number, HTMLCanvasElement>>(new Map());
 
   // ─── React State ───────────────────────────────────────────────────────────
   const [autoOrbit, setAutoOrbit] = useState(false);
@@ -291,6 +292,7 @@ export default function App() {
   const [activeLightTab, setActiveLightTab] = useState(0);
   const [chaserActive, setChaserActive] = useState(false);
   const [chaserBpm, setChaserBpm] = useState(120);
+  const [syncScene, setSyncScene] = useState<SceneType>('gradient');
   const chaserActiveRef = useRef(false);
   const chaserBpmRef = useRef(120);
 
@@ -309,10 +311,10 @@ export default function App() {
     const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
     const initScene: SceneType = isMobile ? 'trailer' : 'camera';
     return [
-      { id: 0, name: '2_izq', scene: initScene, cameraSegment: 0, mapping: { x: 0.00, y: 0, w: 0.25, h: 1 }, params: { text: '*404*', motion: 'elegant', colorMode: 'bw' }, resolution: { w: 1080, h: 1080 } },
-      { id: 1, name: '4_der_back', scene: initScene, cameraSegment: 1, mapping: { x: 0.25, y: 0, w: 0.25, h: 1 }, params: { density: 1 }, resolution: { w: 1080, h: 1080 } },
-      { id: 2, name: '3_der', scene: initScene, cameraSegment: 2, mapping: { x: 0.50, y: 0, w: 0.25, h: 1 }, params: { scale: 1 }, resolution: { w: 1080, h: 1080 } },
-      { id: 3, name: '1_izq_back', scene: initScene, cameraSegment: 3, mapping: { x: 0.75, y: 0, w: 0.25, h: 1 }, params: {}, resolution: { w: 1080, h: 1080 } },
+      { id: 0, name: 'izq_frente', scene: initScene, cameraSegment: 0, mapping: { x: 0.00, y: 0, w: 0.25, h: 1 }, params: { text: '*404*', motion: 'elegant', colorMode: 'bw' }, resolution: { w: 1080, h: 1080 } },
+      { id: 1, name: 'der_back', scene: initScene, cameraSegment: 1, mapping: { x: 0.25, y: 0, w: 0.25, h: 1 }, params: { density: 1 }, resolution: { w: 1080, h: 1080 } },
+      { id: 2, name: 'der_frente', scene: initScene, cameraSegment: 2, mapping: { x: 0.50, y: 0, w: 0.25, h: 1 }, params: { scale: 1 }, resolution: { w: 1080, h: 1080 } },
+      { id: 3, name: 'izq_back', scene: initScene, cameraSegment: 3, mapping: { x: 0.75, y: 0, w: 0.25, h: 1 }, params: {}, resolution: { w: 1080, h: 1080 } },
     ];
   });
 
@@ -368,6 +370,22 @@ export default function App() {
   useEffect(() => { chaserActiveRef.current = chaserActive; }, [chaserActive]);
   useEffect(() => { chaserBpmRef.current = chaserBpm; }, [chaserBpm]);
   useEffect(() => { cubeDimsRef.current = cubeDims; }, [cubeDims]);
+
+  // ─── Preview thumbnails rAF loop ──────────────────────────────────────────
+  useEffect(() => {
+    let rafId: number;
+    const tick = () => {
+      previewCanvasesRef.current.forEach((previewCanvas, faceId) => {
+        const src = faceCanvasRef.current.get(faceId);
+        if (!src) return;
+        const ctx = previewCanvas.getContext('2d');
+        if (ctx) ctx.drawImage(src.canvas, 0, 0, previewCanvas.width, previewCanvas.height);
+      });
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   // Record history (debounced for sliders)
   useEffect(() => {
@@ -1500,9 +1518,41 @@ export default function App() {
                 />
               </div>
 
+              {/* SYNC — broadcast one scene to all faces */}
+              <div className="mb-3 pb-3" style={{ borderBottom: '1px solid #333' }}>
+                <label className="text-[9px] text-gray-500 uppercase block mb-1.5">Sync a todas</label>
+                <div className="flex gap-1.5">
+                  <select
+                    className="flex-1 text-[10px] rounded px-1 py-1"
+                    style={{ background: '#111', color: '#ccc', border: '1px solid #444' }}
+                    value={syncScene}
+                    onChange={e => setSyncScene(e.target.value as SceneType)}
+                  >
+                    {SCENE_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="px-2 py-1 rounded text-[10px] font-bold transition-all"
+                    style={{ background: '#00FF85', color: '#000', whiteSpace: 'nowrap' }}
+                    onClick={() => setFaces(prev => prev.map(f => ({ ...f, scene: syncScene })))}
+                  >▶ SYNC</button>
+                </div>
+              </div>
+
               {/* Per-face scene selector */}
               {faces.map(face => (
                 <div key={face.id} className="mb-3">
+                  {/* Live preview thumbnail */}
+                  <canvas
+                    ref={el => {
+                      if (el) previewCanvasesRef.current.set(face.id, el);
+                      else previewCanvasesRef.current.delete(face.id);
+                    }}
+                    width={224} height={126}
+                    className="w-full rounded mb-1"
+                    style={{ display: 'block', border: '1px solid rgba(255,255,255,0.08)', background: '#000' }}
+                  />
                   <input
                     className="w-full text-xs mb-1 bg-transparent border-b border-transparent hover:border-gray-800 focus:border-gray-500 focus:outline-none transition-colors"
                     style={{ color: '#888' }}
