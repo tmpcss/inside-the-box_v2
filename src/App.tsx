@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type SceneType = 'camera' | 'trailer' | 'fileinput' | 'gradient' | 'matrix' | 'turbulent' | 'geo' | 'win98' | 'scanlines' | 'white' | 'kinetic' | 'countdown';
+type SceneType = 'camera' | 'trailer' | 'fileinput' | 'grid_img' | 'gradient' | 'matrix' | 'turbulent' | 'geo' | 'win98' | 'scanlines' | 'white' | 'kinetic' | 'countdown';
 type LightType = 'point' | 'spot' | 'led';
 
 interface FaceConfig {
@@ -48,6 +48,7 @@ const SCENE_OPTIONS: { value: SceneType; label: string }[] = [
   { value: 'trailer', label: '🎬 Video Principal' },
   { value: 'camera', label: '📹 Cámara Virtual' },
   { value: 'fileinput', label: '📁 Archivo Local' },
+  { value: 'grid_img', label: '▦ Grid' },
   { value: 'gradient', label: '🌈 Gradient Wash' },
   { value: 'matrix', label: '💻 Matrix Rain' },
   { value: 'turbulent', label: '🌊 Turbulent Noise' },
@@ -253,6 +254,10 @@ export default function App() {
   const fileSourceRef = useRef<{ type: 'image'; el: HTMLImageElement } | { type: 'video'; el: HTMLVideoElement; tex: THREE.VideoTexture } | null>(null);
   const fileCanvasRef = useRef<{ canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null>(null);
 
+  // Grid image
+  const gridImgRef = useRef<HTMLImageElement | null>(null);
+  const gridImgReadyRef = useRef(false);
+
   // Cube dims
   const cubeDimsRef = useRef({ w: 3.6, h: 3.6, d: 3.6 });
   const faceMeshesRef = useRef<THREE.Mesh[]>([]);
@@ -342,16 +347,16 @@ export default function App() {
     v.loop = true;
     v.muted = true;
     v.playsInline = true;
-    
+
     const playTrailer = () => {
-      v.play().catch(() => {});
+      v.play().catch(() => { });
     };
     playTrailer();
     window.addEventListener('pointerdown', playTrailer, { once: true });
     window.addEventListener('touchstart', playTrailer, { once: true });
-    
+
     trailerVideoRef.current = v;
-    
+
     // Create 4 video textures for the 4 faces so mapping offsets are independent
     trailerVideoTexturesRef.current = [0, 1, 2, 3].map(() => {
       const tex = new THREE.VideoTexture(v);
@@ -368,6 +373,15 @@ export default function App() {
       trailerVideoTexturesRef.current.forEach(t => t.dispose());
     };
   }, []);
+
+  // Load GRID_V2 image
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/GRID_V2.jpg';
+    img.onload = () => { gridImgReadyRef.current = true; };
+    gridImgRef.current = img;
+  }, []);
+
   useEffect(() => { facesRef.current = faces; }, [faces]);
   useEffect(() => { ledCountRef.current = ledCountGlobal; }, [ledCountGlobal]);
   useEffect(() => { cameraScaleRef.current = cameraScale; }, [cameraScale]);
@@ -488,7 +502,7 @@ export default function App() {
   };
 
   const drawTurbulent = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, t: number, params: any) => {
-    const sc = params.scale || 0.01;
+    const sc = params.scale || 0.1;
     const seed = params.seed || 0;
     const posterize = params.posterize || false;
     const id = ctx.createImageData(canvas.width, canvas.height);
@@ -959,6 +973,14 @@ export default function App() {
           case 'kinetic': drawKinetic(ctx, canvas, time, face.params); break;
           case 'countdown': drawCountdown(ctx, canvas, time); break;
           case 'white': drawWhite(ctx, canvas); break;
+          case 'grid_img': {
+            if (gridImgReadyRef.current && gridImgRef.current) {
+              ctx.drawImage(gridImgRef.current, 0, 0, canvas.width, canvas.height);
+            } else {
+              ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            break;
+          }
           case 'camera': {
             ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             drawGrid(ctx, canvas, 0.05);
@@ -1121,18 +1143,18 @@ export default function App() {
         mat.needsUpdate = true;
       } else if (face.scene === 'trailer' && trailerVideoTexturesRef.current[i]) {
         const tex = trailerVideoTexturesRef.current[i];
-        
+
         const repX = face.mapping.w;
         const repY = face.mapping.h;
         const offX = face.mapping.x;
         const offY = 1 - repY - face.mapping.y;
-        
+
         tex.repeat.set(repX, repY);
         tex.offset.set(offX, offY);
         tex.wrapS = THREE.ClampToEdgeWrapping;
         tex.wrapT = THREE.ClampToEdgeWrapping;
         tex.needsUpdate = true;
-        
+
         if (mat.map !== tex) { mat.map = tex; mat.emissiveMap = tex; }
         mat.opacity = offFaceOpacity;
         mat.needsUpdate = true;
@@ -1310,9 +1332,9 @@ export default function App() {
       const HW = cd.w / 2, HH = cd.h / 2, HD = cd.d / 2; void HH;
       const th = 0.10;
       const edgePositions: [number, number, number][] = [
-        [-HW + th, 0,  HD - th],
-        [ HW - th, 0,  HD - th],
-        [ HW - th, 0, -HD + th],
+        [-HW + th, 0, HD - th],
+        [HW - th, 0, HD - th],
+        [HW - th, 0, -HD + th],
         [-HW + th, 0, -HD + th],
       ];
       const [ex, , ez] = edgePositions[index % 4];
@@ -1600,15 +1622,15 @@ export default function App() {
                 <div key={face.id} className="mb-3">
                   {/* Live preview thumbnail */}
                   {showPreviews && (
-                  <canvas
-                    ref={el => {
-                      if (el) previewCanvasesRef.current.set(face.id, el);
-                      else previewCanvasesRef.current.delete(face.id);
-                    }}
-                    width={112} height={63}
-                    className="rounded mb-1"
-                    style={{ display: 'block', width: '50%', border: '1px solid rgba(255,255,255,0.08)', background: '#000' }}
-                  />
+                    <canvas
+                      ref={el => {
+                        if (el) previewCanvasesRef.current.set(face.id, el);
+                        else previewCanvasesRef.current.delete(face.id);
+                      }}
+                      width={112} height={63}
+                      className="rounded mb-1"
+                      style={{ display: 'block', width: '50%', border: '1px solid rgba(255,255,255,0.08)', background: '#000' }}
+                    />
                   )}
                   <input
                     className="w-full text-xs mb-1 bg-transparent border-b border-transparent hover:border-gray-800 focus:border-gray-500 focus:outline-none transition-colors"
