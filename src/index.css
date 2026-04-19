@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+:root {
+  --bg-dark: #0a0a0a;
+  --accent: #00FF85;
+  --accent-dim: #00cc6a;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --panel-bg: rgba(20, 20, 20, 0.95);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Courier New', Consolas, monospace;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-dim);
+  border-radius: 3px;
+}
+
+/* Slider styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #333;
+  height: 4px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 2px solid #333;
+  border-radius: 4px;
+  width: 40px;
+  height: 30px;
+  cursor: pointer;
+  background: transparent;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #333;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.toggle-switch.active {
+  background: var(--accent);
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.3s;
+}
+
+.toggle-switch.active::after {
+  transform: translateX(20px);
+}
+
+/* Button styles */
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg-dark);
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-family: inherit;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: var(--accent-dim);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--accent);
+  padding: 8px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: rgba(0, 255, 133, 0.1);
+}
+
+/* Panel styles */
+.control-panel {
+  background: var(--panel-bg);
+  border: 1px solid #333;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
