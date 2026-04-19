@@ -315,10 +315,10 @@ export default function App() {
     const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
     const initScene: SceneType = isMobile ? 'trailer' : 'camera';
     return [
-      { id: 3, name: 'izq_back', scene: initScene, cameraSegment: 3, mapping: { x: 0.00, y: 0, w: 0.25, h: 1 }, params: {}, resolution: { w: 1080, h: 1080 } },
       { id: 0, name: 'izq_frente', scene: initScene, cameraSegment: 0, mapping: { x: 0.25, y: 0, w: 0.25, h: 1 }, params: { text: '*404*', motion: 'elegant', colorMode: 'bw' }, resolution: { w: 1080, h: 1080 } },
-      { id: 2, name: 'der_frente', scene: initScene, cameraSegment: 2, mapping: { x: 0.50, y: 0, w: 0.25, h: 1 }, params: { scale: 1 }, resolution: { w: 1080, h: 1080 } },
       { id: 1, name: 'der_back', scene: initScene, cameraSegment: 1, mapping: { x: 0.75, y: 0, w: 0.25, h: 1 }, params: { density: 1 }, resolution: { w: 1080, h: 1080 } },
+      { id: 2, name: 'der_frente', scene: initScene, cameraSegment: 2, mapping: { x: 0.50, y: 0, w: 0.25, h: 1 }, params: { scale: 1 }, resolution: { w: 1080, h: 1080 } },
+      { id: 3, name: 'izq_back', scene: initScene, cameraSegment: 3, mapping: { x: 0.00, y: 0, w: 0.25, h: 1 }, params: {}, resolution: { w: 1080, h: 1080 } },
     ];
   });
 
