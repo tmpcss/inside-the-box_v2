@@ -276,11 +276,11 @@ export default function App() {
   const [showMappingUI, setShowMappingUI] = useState(false);
   const [offFaceOpacity, setOffFaceOpacity] = useState(1.0);
   const [ledCountGlobal, setLedCountGlobal] = useState(12);
-  const [showFacePanel, setShowFacePanel] = useState(true);
-  const [showLightPanel, setShowLightPanel] = useState(true);
-  const [showCameraSection, setShowCameraSection] = useState(true);
-  const [showEstructuraPanel, setShowEstructuraPanel] = useState(true);
-  const [showResolucionPanel, setShowResolucionPanel] = useState(true);
+  const [showFacePanel, setShowFacePanel] = useState(false);
+  const [showLightPanel, setShowLightPanel] = useState(false);
+  const [showCameraSection, setShowCameraSection] = useState(false);
+  const [showEstructuraPanel, setShowEstructuraPanel] = useState(false);
+  const [showResolucionPanel, setShowResolucionPanel] = useState(false);
   const [cubeDims, setCubeDims] = useState({ w: 3.6, h: 3.6, d: 3.6 });
   const [rigStyle, setRigStyle] = useState<'pipe' | 'truss'>('truss');
   const [activeLightTab, setActiveLightTab] = useState(0);
@@ -1302,11 +1302,11 @@ export default function App() {
       {/* Title */}
       <div className="absolute top-4 left-4 pointer-events-none" style={{ zIndex: 10 }}>
         <h1 className="text-2xl font-bold tracking-widest" style={{ color: '#00FF85' }}>INSIDE THE BOX</h1>
-        <p className="text-xs mt-0.5" style={{ color: '#444' }}> Installation Visualizer</p>
+        <p className="text-xs mt-0.5" style={{ color: '#444' }}> By toni y tomi </p>
       </div>
 
       {/* Top-right controls */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2" style={{ zIndex: 10, width: 220 }} onPointerDown={e => e.stopPropagation()}>
+      <div className="absolute top-24 right-4 flex flex-col gap-2" style={{ zIndex: 10, width: 220 }} onPointerDown={e => e.stopPropagation()}>
         <div className="flex flex-col gap-2 w-full">
           <button
             className={`btn-secondary text-xs w-full py-2 flex items-center justify-center gap-2 transition-all`}
@@ -1342,13 +1342,13 @@ export default function App() {
       </div>
 
       {/* ── LEFT SIDEBAR (Escenas + Luces) ── */}
-      <div className="absolute top-16 left-4 flex flex-col gap-2" style={{ zIndex: 10, width: 256 }} onPointerDown={e => e.stopPropagation()}>
+      <div className="absolute top-24 left-4 flex flex-col gap-2" style={{ zIndex: 10, width: 256 }} onPointerDown={e => e.stopPropagation()}>
         {/* Mapeo Módulo */}
         <button
           className="w-full text-xs py-2 border border-green-800/50 rounded flex justify-center items-center bg-green-900/20 hover:bg-green-800/40 text-green-400 font-bold tracking-widest uppercase transition-colors"
           onClick={() => setShowMappingUI(true)}
         >
-          ⚙ MAPEO
+          ⚙ Configurar Mapeiito . _.
         </button>
 
         {/* PANEL: Cámara Virtual (Independent) */}
@@ -1539,8 +1539,8 @@ export default function App() {
 
         {/* ── LIGHT PANEL ── */}
         <div>
-          <button 
-            className="btn-secondary text-xs mb-1 w-full flex items-center justify-center relative py-2 font-bold tracking-widest uppercase" 
+          <button
+            className="btn-secondary text-xs mb-1 w-full flex items-center justify-center relative py-2 font-bold tracking-widest uppercase"
             onClick={() => setShowLightPanel(v => !v)}
           >
             <span className="absolute left-3 text-gray-500">{showLightPanel ? '▼' : '▶'}</span>
@@ -1704,7 +1704,7 @@ export default function App() {
       </div>
 
       {/* ── RIGHT FLOATING PANELS ── */}
-      <div className="absolute right-4 flex flex-col gap-2 transition-all duration-300" style={{ zIndex: 10, width: 220, top: autoOrbit ? '9.5rem' : '6.5rem' }} onPointerDown={e => e.stopPropagation()}>
+      <div className="absolute right-4 flex flex-col gap-2 transition-all duration-300" style={{ zIndex: 10, width: 220, top: autoOrbit ? '14.5rem' : '11.5rem' }} onPointerDown={e => e.stopPropagation()}>
 
         {/* Panel A — Estructura */}
         <div>
@@ -1882,7 +1882,7 @@ export default function App() {
                 <span><span className="text-white/20 uppercase">Total px:</span> <span className="text-green-400 font-mono">{totalPixels.toLocaleString()}</span></span>
               </div>
               <div className="flex gap-3 flex-wrap">
-                {[faces.find(f => f.id === 3), faces.find(f => f.id === 0), faces.find(f => f.id === 2), faces.find(f => f.id === 1)].filter((f): f is FaceConfig => !!f).map(f => (
+                {faces.map(f => (
                   <span key={f.id} className="font-mono">{f.name}: <span className="text-white/60">{f.resolution.w}×{f.resolution.h}</span></span>
                 ))}
               </div>
@@ -1922,8 +1922,8 @@ export default function App() {
 
               {/* Draggable segment overlays */}
               <div className="absolute inset-0">
-                {[faces.find(f => f.id === 3), faces.find(f => f.id === 0), faces.find(f => f.id === 2), faces.find(f => f.id === 1)].filter((f): f is FaceConfig => !!f).map((face, index) => {
-                  const color = index === 0 ? '#ff0066' : index === 1 ? '#00ff85' : index === 2 ? '#0066ff' : '#ffff00';
+                {faces.map((face, index) => {
+                  const color = index === 0 ? '#00ff85' : index === 1 ? '#ffff00' : index === 2 ? '#0066ff' : '#ff0066';
                   return (
                     <div
                       key={face.id}
