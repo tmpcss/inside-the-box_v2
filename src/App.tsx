@@ -258,6 +258,9 @@ export default function App() {
   const gridImgRef = useRef<HTMLImageElement | null>(null);
   const gridImgReadyRef = useRef(false);
 
+  // Mapping preview composite canvas
+  const mappingPreviewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   // Cube dims
   const cubeDimsRef = useRef({ w: 3.6, h: 3.6, d: 3.6 });
   const faceMeshesRef = useRef<THREE.Mesh[]>([]);
@@ -391,16 +394,47 @@ export default function App() {
   useEffect(() => { offFaceOpacityRef.current = offFaceOpacity; }, [offFaceOpacity]);
   useEffect(() => { lightsAllOffRef.current = lightsAllOff; }, [lightsAllOff]);
 
-  // ─── Preview thumbnails rAF loop ──────────────────────────────────────────
+  // ─── Preview thumbnails + mapping composite rAF loop ─────────────────────
   useEffect(() => {
     let rafId: number;
     const tick = () => {
+      // Face thumbnail previews
       previewCanvasesRef.current.forEach((previewCanvas, faceId) => {
         const src = faceCanvasRef.current.get(faceId);
         if (!src) return;
         const ctx = previewCanvas.getContext('2d');
         if (ctx) ctx.drawImage(src.canvas, 0, 0, previewCanvas.width, previewCanvas.height);
       });
+
+      // Mapping preview — composite all face sources at their mapping positions
+      const mp = mappingPreviewCanvasRef.current;
+      if (mp) {
+        const ctx = mp.getContext('2d');
+        if (ctx) {
+          const cw = mp.width, ch = mp.height;
+          ctx.fillStyle = '#0a0a0a';
+          ctx.fillRect(0, 0, cw, ch);
+          facesRef.current.forEach((face, i) => {
+            const { x, y, w, h } = face.mapping;
+            const dx = x * cw, dy = y * ch, dw = w * cw, dh = h * ch;
+            try {
+              if (face.scene === 'camera' && videoRef.current?.srcObject) {
+                ctx.drawImage(videoRef.current, dx, dy, dw, dh);
+              } else if (face.scene === 'trailer' && trailerVideoRef.current && (trailerVideoRef.current.readyState ?? 0) >= 2) {
+                ctx.drawImage(trailerVideoRef.current, dx, dy, dw, dh);
+              } else if (face.scene === 'fileinput' && fileSourceRef.current) {
+                ctx.drawImage(fileSourceRef.current.el, dx, dy, dw, dh);
+              } else if (face.scene === 'grid_img' && gridImgReadyRef.current && gridImgRef.current) {
+                ctx.drawImage(gridImgRef.current, dx, dy, dw, dh);
+              } else {
+                const src = faceCanvasRef.current.get(i);
+                if (src) ctx.drawImage(src.canvas, dx, dy, dw, dh);
+              }
+            } catch { /* source not ready yet */ }
+          });
+        }
+      }
+
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
@@ -2123,18 +2157,13 @@ export default function App() {
               className="relative bg-black rounded-lg border border-white/5 overflow-hidden"
               style={{ height: 320 }}
             >
-              {videoRef.current ? (
-                <video
-                  autoPlay muted playsInline
-                  ref={v => { if (v && videoRef.current) v.srcObject = videoRef.current.srcObject; }}
-                  className="absolute inset-0 w-full h-full opacity-70 grayscale-[30%]"
-                  style={{ objectFit: 'fill' }}
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white/20 uppercase tracking-widest">
-                  Awaiting Video Device...
-                </div>
-              )}
+              {/* Composite canvas — shows live content of each face at its mapping position */}
+              <canvas
+                ref={mappingPreviewCanvasRef}
+                width={860}
+                height={320}
+                className="absolute inset-0 w-full h-full"
+              />
 
               {/* Draggable segment overlays */}
               <div className="absolute inset-0">
