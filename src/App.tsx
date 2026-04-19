@@ -1440,6 +1440,9 @@ export default function App() {
       {/* Top-right controls */}
       <div className="absolute top-24 right-4 flex flex-col gap-2" style={{ zIndex: 10, width: 220 }} onPointerDown={e => e.stopPropagation()}>
         <div className="flex flex-col gap-2 w-full">
+          <button className="btn-secondary text-xs w-full py-2 flex items-center justify-center font-bold tracking-widest" onClick={resetCamera}>
+            ⌂ RESET CAM
+          </button>
           <button
             className={`btn-secondary text-xs w-full py-2 flex items-center justify-center gap-2 transition-all`}
             style={autoOrbit ? { background: '#00FF85', color: '#000', border: '1px solid #00FF85', fontWeight: 'bold' } : {}}
@@ -1447,9 +1450,6 @@ export default function App() {
           >
             <div className={`w-2 h-2 rounded-full ${autoOrbit ? 'bg-black animate-pulse' : 'bg-gray-600'}`}></div>
             <span className="font-bold tracking-widest">⟳ AUTO ORBIT</span>
-          </button>
-          <button className="btn-secondary text-xs w-full py-2 flex items-center justify-center font-bold tracking-widest" onClick={resetCamera}>
-            ⌂ RESET CAM
           </button>
         </div>
 
