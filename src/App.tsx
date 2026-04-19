@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type SceneType = 'camera' | 'fileinput' | 'gradient' | 'matrix' | 'turbulent' | 'geo' | 'win98' | 'scanlines' | 'white' | 'kinetic' | 'countdown';
+type SceneType = 'camera' | 'trailer' | 'fileinput' | 'gradient' | 'matrix' | 'turbulent' | 'geo' | 'win98' | 'scanlines' | 'white' | 'kinetic' | 'countdown';
 type LightType = 'point' | 'spot' | 'led';
 
 interface FaceConfig {
@@ -44,6 +44,7 @@ const BASE_CUBE_SIZE = 3.5;
 const HALF = BASE_CUBE_SIZE / 2;
 
 const SCENE_OPTIONS: { value: SceneType; label: string }[] = [
+  { value: 'trailer', label: '🎬 Video Principal' },
   { value: 'camera', label: '📹 Cámara Virtual' },
   { value: 'fileinput', label: '📁 Archivo Local' },
   { value: 'gradient', label: '🌈 Gradient Wash' },
@@ -243,6 +244,10 @@ export default function App() {
   const videoTexRef = useRef<THREE.VideoTexture | null>(null);
   const faceVideoTexturesRef = useRef<THREE.VideoTexture[]>([]);
 
+  // Trailer video
+  const trailerVideoRef = useRef<HTMLVideoElement | null>(null);
+  const trailerVideoTexturesRef = useRef<THREE.VideoTexture[]>([]);
+
   // File input (local video/image)
   const fileSourceRef = useRef<{ type: 'image'; el: HTMLImageElement } | { type: 'video'; el: HTMLVideoElement; tex: THREE.VideoTexture } | null>(null);
   const fileCanvasRef = useRef<{ canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null>(null);
@@ -300,12 +305,16 @@ export default function App() {
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const faceDragRef = useRef<{ faceId: number; startMouseX: number; startMouseY: number; startMX: number; startMY: number; mW: number; mH: number } | null>(null);
 
-  const [faces, setFaces] = useState<FaceConfig[]>([
-    { id: 0, name: 'izq_frente', scene: 'camera', cameraSegment: 0, mapping: { x: 0.00, y: 0, w: 0.25, h: 1 }, params: { text: '*404*', motion: 'elegant', colorMode: 'bw' }, resolution: { w: 1080, h: 1080 } },
-    { id: 1, name: 'der_back', scene: 'camera', cameraSegment: 1, mapping: { x: 0.25, y: 0, w: 0.25, h: 1 }, params: { density: 1 }, resolution: { w: 1080, h: 1080 } },
-    { id: 2, name: 'der_frente', scene: 'camera', cameraSegment: 2, mapping: { x: 0.50, y: 0, w: 0.25, h: 1 }, params: { scale: 1 }, resolution: { w: 1080, h: 1080 } },
-    { id: 3, name: 'izq_back', scene: 'camera', cameraSegment: 3, mapping: { x: 0.75, y: 0, w: 0.25, h: 1 }, params: {}, resolution: { w: 1080, h: 1080 } },
-  ]);
+  const [faces, setFaces] = useState<FaceConfig[]>(() => {
+    const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
+    const initScene: SceneType = isMobile ? 'trailer' : 'camera';
+    return [
+      { id: 0, name: 'izq_frente', scene: initScene, cameraSegment: 0, mapping: { x: 0.00, y: 0, w: 0.25, h: 1 }, params: { text: '*404*', motion: 'elegant', colorMode: 'bw' }, resolution: { w: 1080, h: 1080 } },
+      { id: 1, name: 'der_back', scene: initScene, cameraSegment: 1, mapping: { x: 0.25, y: 0, w: 0.25, h: 1 }, params: { density: 1 }, resolution: { w: 1080, h: 1080 } },
+      { id: 2, name: 'der_frente', scene: initScene, cameraSegment: 2, mapping: { x: 0.50, y: 0, w: 0.25, h: 1 }, params: { scale: 1 }, resolution: { w: 1080, h: 1080 } },
+      { id: 3, name: 'izq_back', scene: initScene, cameraSegment: 3, mapping: { x: 0.75, y: 0, w: 0.25, h: 1 }, params: {}, resolution: { w: 1080, h: 1080 } },
+    ];
+  });
 
   const [lights, setLights] = useState<LightConfig[]>([
     { id: 0, name: 'Light A', color: '#ff0066', intensity: 2, strobe: false, strobeHz: 3, type: 'point', x: -0.8, y: 0.8, z: 0.8, rotX: -45, rotY: 0 },
@@ -318,6 +327,41 @@ export default function App() {
   useEffect(() => { autoOrbitRef.current = autoOrbit; }, [autoOrbit]);
   useEffect(() => { autoOrbitSpeedRef.current = autoOrbitSpeed; }, [autoOrbitSpeed]);
   useEffect(() => { lightsRef.current = lights; }, [lights]);
+
+  // ─── Trailer Video Init ──────────────────────────────────────────────────
+  useEffect(() => {
+    const v = document.createElement('video');
+    v.src = '/Inside_the_box_v3.mp4';
+    v.crossOrigin = 'anonymous';
+    v.loop = true;
+    v.muted = true;
+    v.playsInline = true;
+    
+    const playTrailer = () => {
+      v.play().catch(() => {});
+    };
+    playTrailer();
+    window.addEventListener('pointerdown', playTrailer, { once: true });
+    window.addEventListener('touchstart', playTrailer, { once: true });
+    
+    trailerVideoRef.current = v;
+    
+    // Create 4 video textures for the 4 faces so mapping offsets are independent
+    trailerVideoTexturesRef.current = [0, 1, 2, 3].map(() => {
+      const tex = new THREE.VideoTexture(v);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    });
+
+    return () => {
+      window.removeEventListener('pointerdown', playTrailer);
+      window.removeEventListener('touchstart', playTrailer);
+      v.pause();
+      v.src = '';
+      v.load();
+      trailerVideoTexturesRef.current.forEach(t => t.dispose());
+    };
+  }, []);
   useEffect(() => { facesRef.current = faces; }, [faces]);
   useEffect(() => { ledCountRef.current = ledCountGlobal; }, [ledCountGlobal]);
   useEffect(() => { cameraScaleRef.current = cameraScale; }, [cameraScale]);
@@ -851,6 +895,7 @@ export default function App() {
         if (face.scene === 'camera' && cameraActive) return;
         // Skip canvas redraw for fileinput (uses VideoTexture or CanvasTexture directly handled in useEffect)
         if (face.scene === 'fileinput') return;
+        if (face.scene === 'trailer') return;
 
         const { canvas, ctx } = fd;
         switch (face.scene) {
@@ -1023,6 +1068,23 @@ export default function App() {
         tex.wrapT = THREE.ClampToEdgeWrapping;
         tex.needsUpdate = true;
 
+        if (mat.map !== tex) { mat.map = tex; mat.emissiveMap = tex; }
+        mat.opacity = offFaceOpacity;
+        mat.needsUpdate = true;
+      } else if (face.scene === 'trailer' && trailerVideoTexturesRef.current[i]) {
+        const tex = trailerVideoTexturesRef.current[i];
+        
+        const repX = face.mapping.w;
+        const repY = face.mapping.h;
+        const offX = face.mapping.x;
+        const offY = 1 - repY - face.mapping.y;
+        
+        tex.repeat.set(repX, repY);
+        tex.offset.set(offX, offY);
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.needsUpdate = true;
+        
         if (mat.map !== tex) { mat.map = tex; mat.emissiveMap = tex; }
         mat.opacity = offFaceOpacity;
         mat.needsUpdate = true;
@@ -1263,7 +1325,14 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.faces) setFaces(parsed.faces);
+        if (parsed.faces) {
+          const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
+          if (isMobile) {
+            setFaces(parsed.faces.map((f: FaceConfig) => ({ ...f, scene: 'trailer' })));
+          } else {
+            setFaces(parsed.faces);
+          }
+        }
         if (parsed.lights) setLights(parsed.lights);
         if (parsed.cameraScale) setCameraScale(parsed.cameraScale);
         if (parsed.offFaceOpacity) setOffFaceOpacity(parsed.offFaceOpacity);
