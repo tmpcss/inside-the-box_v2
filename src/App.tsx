@@ -1548,7 +1548,7 @@ export default function App() {
           </button>
 
           {showFacePanel && (
-            <div className="control-panel p-3" style={{ width: 256 }}>
+            <div className="control-panel p-3" style={{ width: 256, maxHeight: 480, overflowY: 'auto' }}>
               {/* Global Intensity */}
               <div className="mb-3 pb-3" style={{ borderBottom: '1px solid #333' }}>
                 <div className="flex justify-between items-center mb-1">
@@ -1594,9 +1594,9 @@ export default function App() {
                       if (el) previewCanvasesRef.current.set(face.id, el);
                       else previewCanvasesRef.current.delete(face.id);
                     }}
-                    width={224} height={126}
-                    className="w-full rounded mb-1"
-                    style={{ display: 'block', border: '1px solid rgba(255,255,255,0.08)', background: '#000' }}
+                    width={112} height={63}
+                    className="rounded mb-1"
+                    style={{ display: 'block', width: '50%', border: '1px solid rgba(255,255,255,0.08)', background: '#000' }}
                   />
                   <input
                     className="w-full text-xs mb-1 bg-transparent border-b border-transparent hover:border-gray-800 focus:border-gray-500 focus:outline-none transition-colors"
