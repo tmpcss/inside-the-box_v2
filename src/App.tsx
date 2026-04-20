@@ -16,6 +16,11 @@ interface FaceConfig {
   resolution: { w: number; h: number }; // Per-face canvas resolution
 }
 
+interface LightPreset {
+  name: string;
+  lights: LightConfig[];
+}
+
 interface LightConfig {
   id: number;
   name: string;
@@ -306,6 +311,10 @@ export default function App() {
   const [lightsAllOff, setLightsAllOff] = useState(false);
   const [showPreviews, setShowPreviews] = useState(true);
   const lightsAllOffRef = useRef(false);
+  const [lightPresets, setLightPresets] = useState<LightPreset[]>(() => {
+    try { return JSON.parse(localStorage.getItem('stage_viz_light_presets') || '[]'); } catch { return []; }
+  });
+  const [presetName, setPresetName] = useState('');
   const chaserActiveRef = useRef(false);
   const chaserBpmRef = useRef(120);
 
@@ -1436,6 +1445,27 @@ export default function App() {
   const updateLight = (i: number, patch: Partial<LightConfig>) =>
     setLights(prev => prev.map((l, idx) => idx === i ? { ...l, ...patch } : l));
 
+  const savePreset = () => {
+    const name = presetName.trim() || `Preset ${lightPresets.length + 1}`;
+    const updated = [...lightPresets.filter(p => p.name !== name), { name, lights: JSON.parse(JSON.stringify(lights)) }];
+    setLightPresets(updated);
+    localStorage.setItem('stage_viz_light_presets', JSON.stringify(updated));
+    setPresetName('');
+  };
+
+  const loadPreset = (preset: LightPreset) => {
+    preset.lights.forEach((newL, idx) => {
+      if (lights[idx] && lights[idx].type !== newL.type) switchLightType(idx, newL.type);
+    });
+    setLights(preset.lights.map((l, idx) => ({ ...l, id: idx })));
+  };
+
+  const deletePreset = (name: string) => {
+    const updated = lightPresets.filter(p => p.name !== name);
+    setLightPresets(updated);
+    localStorage.setItem('stage_viz_light_presets', JSON.stringify(updated));
+  };
+
   const updateFace = (id: number, patch: Partial<FaceConfig>) =>
     setFaces(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
 
@@ -1783,6 +1813,47 @@ export default function App() {
           {showLightPanel && (
             <div className="control-panel p-3" style={{ width: 256 }}>
 
+              {/* ── Presets ── */}
+              <div className="mb-3 pb-3" style={{ borderBottom: '1px solid #222' }}>
+                <label className="text-[9px] text-gray-500 uppercase block mb-1.5">Presets</label>
+                <div className="flex gap-1 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Nombre…"
+                    value={presetName}
+                    onChange={e => setPresetName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && savePreset()}
+                    className="flex-1 text-[10px] bg-black border border-white/10 rounded px-1.5 py-1 text-white/70 font-mono"
+                  />
+                  <button
+                    className="px-2 py-1 rounded text-[10px] font-bold"
+                    style={{ background: '#00FF85', color: '#000' }}
+                    onClick={savePreset}
+                  >SAVE</button>
+                </div>
+                {lightPresets.length === 0 && (
+                  <p className="text-[8px] text-gray-600 italic">Sin presets guardados</p>
+                )}
+                <div className="space-y-1" style={{ maxHeight: 120, overflowY: 'auto' }}>
+                  {lightPresets.map(p => (
+                    <div key={p.name} className="flex items-center gap-1">
+                      <button
+                        className="flex-1 text-left text-[9px] px-1.5 py-1 rounded truncate"
+                        style={{ background: '#111', color: '#aaa', border: '1px solid #2a2a2a' }}
+                        onClick={() => loadPreset(p)}
+                        title={`Cargar: ${p.name}`}
+                      >▶ {p.name}</button>
+                      <button
+                        className="px-1.5 py-1 rounded text-[9px]"
+                        style={{ background: '#1a0000', color: '#ff4444', border: '1px solid #330000' }}
+                        onClick={() => deletePreset(p.name)}
+                        title="Eliminar"
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* ── Master controls row ── */}
               <div className="flex gap-1.5 mb-3">
                 {/* All ON/OFF */}
@@ -1813,7 +1884,7 @@ export default function App() {
                     onChange={e => setChaserBpm(+e.target.value)}
                     className="flex-1 h-1 accent-[#00FF85]" />
                   <input type="number" min={30} max={300} value={chaserBpm}
-                    onChange={e => setChaserBpm(Math.max(30, Math.min(300, +e.target.value || 30)))}
+                    onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) setChaserBpm(Math.max(30, Math.min(300, v))); }}
                     className="text-[9px] bg-black border border-white/10 rounded px-1 py-0.5 text-green-400 font-mono"
                     style={{ width: 44 }} />
                 </div>
@@ -1844,7 +1915,10 @@ export default function App() {
                 const numInput = (val: number, min: number, max: number, step: number, key: string) => (
                   <input
                     type="number" min={min} max={max} step={step} value={val}
-                    onChange={e => updateLight(i, { [key]: Math.max(min, Math.min(max, +e.target.value || min)) })}
+                    onChange={e => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v)) updateLight(i, { [key]: Math.max(min, Math.min(max, v)) });
+                    }}
                     className="text-[9px] bg-black border border-white/10 rounded px-1 py-0.5 text-green-400 font-mono"
                     style={{ width: 50 }}
                   />
