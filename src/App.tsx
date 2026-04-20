@@ -160,7 +160,7 @@ function makeTrussSegment(
     addTube(pointA.clone().add(off), pointB.clone().add(off), chordR);
   });
 
-  const panelCount = Math.max(2, Math.round(length / 0.5));
+  const panelCount = Math.max(2, Math.min(8, Math.round(length / 0.5)));
   for (let k = 0; k < panelCount; k++) {
     const t0 = k / panelCount;
     const t1 = (k + 1) / panelCount;
@@ -747,7 +747,7 @@ export default function App() {
     scene.background = new THREE.Color(0x0a0a0a);
     sceneRef.current = scene;
 
-    const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 1000);
+    const cam = new THREE.PerspectiveCamera(60, W / H, 0.01, 5000);
     cam.position.set(5, 4, 5);
     cam.lookAt(0, 0, 0);
     cameraRef.current = cam;
