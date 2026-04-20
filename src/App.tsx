@@ -514,16 +514,14 @@ export default function App() {
   }, [undo, redo]);
 
   // ─── Texture draw functions ────────────────────────────────────────────────
-  const noise2D = (x: number, y: number) => {
-    const i = Math.floor(x), j = Math.floor(y);
-    const fx = x - i, fy = y - j;
-    const dot = (ix: number, iy: number) => {
-      const v = Math.sin(ix * 12.9898 + iy * 78.233) * 43758.5453;
-      return v - Math.floor(v);
-    };
-    const a = dot(i, j), b = dot(i + 1, j), c = dot(i, j + 1), d = dot(i + 1, j + 1);
-    const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
-    return a * (1 - ux) * (1 - uy) + b * ux * (1 - uy) + c * (1 - ux) * uy + d * ux * uy;
+  const drawGrid = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, opacity = 0.1) => {
+    ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+    ctx.lineWidth = 0.5;
+    const step = Math.max(canvas.width / 24, 20);
+    ctx.beginPath();
+    for (let x = 0; x <= canvas.width; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
+    for (let y = 0; y <= canvas.height; y += step) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
+    ctx.stroke();
   };
 
   // --- ANIMATION HELPERS ---
