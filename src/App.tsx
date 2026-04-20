@@ -544,9 +544,9 @@ export default function App() {
     const h1 = (t * 30 * speed) % 360;
     const h2 = (h1 + 110) % 360;
     const h3 = (h1 + 220) % 360;
-    g.addColorStop(0,   `hsl(${h1},100%,55%)`);
+    g.addColorStop(0, `hsl(${h1},100%,55%)`);
     g.addColorStop(0.45, `hsl(${h2},100%,50%)`);
-    g.addColorStop(1,   `hsl(${h3},100%,55%)`);
+    g.addColorStop(1, `hsl(${h3},100%,55%)`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     // soft radial overlay for depth
@@ -725,7 +725,7 @@ export default function App() {
     ctx.fillText('Start', 6 * S, canvas.height - tbH + 15 * S);
     // Clock
     const now = new Date();
-    const clockStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    const clockStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     ctx.font = `${8 * S}px "Tahoma", sans-serif`;
     ctx.textAlign = 'right';
     ctx.fillText(clockStr, canvas.width - 6 * S, canvas.height - tbH + 14 * S);
@@ -766,7 +766,7 @@ export default function App() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.minDistance = 0.01;
-    controls.maxDistance = 20;
+    controls.maxDistance = 200;
     controls.autoRotateSpeed = 0.6;
     orbitRef.current = controls;
 
@@ -809,7 +809,7 @@ export default function App() {
       const mat = new THREE.MeshStandardMaterial({
         map: tex,
         emissiveMap: tex,
-        emissive: new THREE.Color(0.25, 0.25, 0.25),
+        emissive: new THREE.Color(0.5, 0, 0),
         emissiveIntensity: 1.0,
         roughness: 1,
         metalness: 0,
@@ -2031,9 +2031,9 @@ export default function App() {
                     <label className="text-[9px] text-gray-500 uppercase" style={{ minWidth: 76 }}>{labels[dim]}</label>
                     <input
                       type="number"
-                      min={0.5} max={20} step={0.1}
+                      min={0.5} max={50} step={0.1}
                       value={cubeDims[dim]}
-                      onChange={e => setCubeDims(prev => ({ ...prev, [dim]: Math.max(0.5, Math.min(20, +e.target.value || 0.5)) }))}
+                      onChange={e => setCubeDims(prev => ({ ...prev, [dim]: Math.max(0.5, Math.min(50, +e.target.value || 0.5)) }))}
                       className="flex-1 text-[10px] bg-black border border-white/10 rounded px-1 py-0.5 text-green-400 font-mono"
                       style={{ width: 52 }}
                     />
@@ -2200,14 +2200,14 @@ export default function App() {
                 {(() => {
                   const COLORS = ['#ff0066', '#00ff85', '#0066ff', '#ffff00'];
                   const HANDLES: { key: string; style: React.CSSProperties }[] = [
-                    { key: 'nw', style: { top: -5, left:  -5, cursor: 'nwse-resize' } },
-                    { key: 'n',  style: { top: -5, left: 'calc(50% - 5px)', cursor: 'ns-resize' } },
+                    { key: 'nw', style: { top: -5, left: -5, cursor: 'nwse-resize' } },
+                    { key: 'n', style: { top: -5, left: 'calc(50% - 5px)', cursor: 'ns-resize' } },
                     { key: 'ne', style: { top: -5, right: -5, cursor: 'nesw-resize' } },
-                    { key: 'e',  style: { top: 'calc(50% - 5px)', right: -5, cursor: 'ew-resize' } },
+                    { key: 'e', style: { top: 'calc(50% - 5px)', right: -5, cursor: 'ew-resize' } },
                     { key: 'se', style: { bottom: -5, right: -5, cursor: 'nwse-resize' } },
-                    { key: 's',  style: { bottom: -5, left: 'calc(50% - 5px)', cursor: 'ns-resize' } },
-                    { key: 'sw', style: { bottom: -5, left:  -5, cursor: 'nesw-resize' } },
-                    { key: 'w',  style: { top: 'calc(50% - 5px)', left: -5, cursor: 'ew-resize' } },
+                    { key: 's', style: { bottom: -5, left: 'calc(50% - 5px)', cursor: 'ns-resize' } },
+                    { key: 'sw', style: { bottom: -5, left: -5, cursor: 'nesw-resize' } },
+                    { key: 'w', style: { top: 'calc(50% - 5px)', left: -5, cursor: 'ew-resize' } },
                   ];
                   return faces.map((face, index) => {
                     const color = COLORS[index];
