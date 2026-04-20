@@ -865,7 +865,7 @@ export default function App() {
     });
 
     // ── Interior Lights ──────────────────────────────────────────────────────
-    const helperGeo = new THREE.SphereGeometry(0.06, 12, 12);
+    const helperGeo = new THREE.SphereGeometry(0.09, 12, 12);
     lightObjsRef.current = [];
 
     lightsRef.current.forEach((cfg, idx) => {
@@ -883,7 +883,7 @@ export default function App() {
         spot.castShadow = true;
         scene.add(spot);
         scene.add(spot.target);
-        hMesh.visible = false;
+        hMesh.visible = true;
         const spotHelper = new THREE.SpotLightHelper(spot);
         scene.add(spotHelper);
         lightObjsRef.current.push({ threeLight: spot, helperMesh: hMesh, helperMat: hMat, spotHelper });
@@ -1120,6 +1120,57 @@ export default function App() {
     };
     animate();
 
+    // ── Light drag gizmos ────────────────────────────────────────────────────
+    const dragRaycaster = new THREE.Raycaster();
+    const dragPlaneHit = new THREE.Vector3();
+    let activeLightDrag: { idx: number; plane: THREE.Plane } | null = null;
+
+    const getNDC = (e: PointerEvent) => {
+      const rect = cvs.getBoundingClientRect();
+      return new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+    };
+
+    const onLightDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      dragRaycaster.setFromCamera(getNDC(e), cam);
+      const helpers = lightObjsRef.current.map(lo => lo.helperMesh);
+      const hits = dragRaycaster.intersectObjects(helpers);
+      if (!hits.length) return;
+      const hitIdx = lightObjsRef.current.findIndex(lo => lo.helperMesh === hits[0].object);
+      if (hitIdx < 0) return;
+      const cfg = lightsRef.current[hitIdx];
+      activeLightDrag = { idx: hitIdx, plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -cfg.y) };
+      controls.enabled = false;
+      cvs.style.cursor = 'grabbing';
+      e.stopPropagation();
+    };
+
+    const onLightMove = (e: PointerEvent) => {
+      if (!activeLightDrag) return;
+      dragRaycaster.setFromCamera(getNDC(e), cam);
+      if (dragRaycaster.ray.intersectPlane(activeLightDrag.plane, dragPlaneHit)) {
+        const idx = activeLightDrag.idx;
+        setLights(prev => prev.map((l, i) => i === idx
+          ? { ...l, x: +dragPlaneHit.x.toFixed(3), z: +dragPlaneHit.z.toFixed(3) }
+          : l
+        ));
+      }
+    };
+
+    const onLightUp = () => {
+      if (!activeLightDrag) return;
+      controls.enabled = true;
+      activeLightDrag = null;
+      cvs.style.cursor = '';
+    };
+
+    cvs.addEventListener('pointerdown', onLightDown);
+    window.addEventListener('pointermove', onLightMove);
+    window.addEventListener('pointerup', onLightUp);
+
     // Resize
     const onResize = () => {
       const cw = container.clientWidth || window.innerWidth;
@@ -1132,6 +1183,9 @@ export default function App() {
 
     return () => {
       window.removeEventListener('resize', onResize);
+      cvs.removeEventListener('pointerdown', onLightDown);
+      window.removeEventListener('pointermove', onLightMove);
+      window.removeEventListener('pointerup', onLightUp);
       cancelAnimationFrame(animIdRef.current);
       controls.dispose();
       renderer.dispose();
@@ -1366,7 +1420,7 @@ export default function App() {
       scene3.add(spot);
       scene3.add(spot.target);
       newLight = spot;
-      lo.helperMesh.visible = false;
+      lo.helperMesh.visible = true;
       newSpotHelper = new THREE.SpotLightHelper(spot);
       scene3.add(newSpotHelper);
 
@@ -1408,7 +1462,7 @@ export default function App() {
       }
       scene3.add(group);
       newLedGroup = group;
-      lo.helperMesh.visible = false;
+      lo.helperMesh.visible = true;
 
       // Fill point light at strip center
       const pt = new THREE.PointLight(cfg.color, cfg.intensity * 0.5, 10);
@@ -2003,8 +2057,8 @@ export default function App() {
                       </div>
                     ))}
 
-                    {/* Rotation (spot only) */}
-                    {l.type === 'spot' && (
+                    {/* Rotation (spot + led) */}
+                    {(l.type === 'spot' || l.type === 'led') && (
                       <>
                         <p className="text-[9px] text-gray-500 uppercase mb-1 mt-2">Rotación</p>
                         {(['rotX', 'rotY'] as const).map(ax => (
