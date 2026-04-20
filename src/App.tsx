@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type SceneType = 'camera' | 'trailer' | 'fileinput' | 'grid_img' | 'gradient' | 'matrix' | 'turbulent' | 'geo' | 'win98' | 'scanlines' | 'white' | 'kinetic' | 'countdown';
+type SceneType = 'camera' | 'trailer' | 'fileinput' | 'grid_img' | 'gradient' | 'win98' | 'white';
 type LightType = 'point' | 'spot' | 'led';
 
 interface FaceConfig {
@@ -50,19 +50,13 @@ const BASE_CUBE_SIZE = 3.5;
 const HALF = BASE_CUBE_SIZE / 2;
 
 const SCENE_OPTIONS: { value: SceneType; label: string }[] = [
-  { value: 'trailer', label: '🎬 Video Principal' },
+  { value: 'trailer', label: '🎬 Video Base' },
   { value: 'camera', label: '📹 Cámara Virtual' },
   { value: 'fileinput', label: '📁 Archivo Local' },
   { value: 'grid_img', label: '▦ Grid' },
   { value: 'gradient', label: '🌈 Gradient Wash' },
-  { value: 'matrix', label: '💻 Matrix Rain' },
-  { value: 'turbulent', label: '🌊 Turbulent Noise' },
-  { value: 'geo', label: '🔷 Geo Shapes' },
   { value: 'win98', label: '🖥️ Win98 Glitch' },
-  { value: 'scanlines', label: '📺 Scanlines' },
-  { value: 'kinetic', label: '🏃 Kinetic Typo' },
-  { value: 'countdown', label: '🕙 Countdown 24h' },
-  { value: 'white', label: '⬜ Blanco (OFF)' },
+  { value: 'white', label: '⬜ Blanco' },
 ];
 
 // ─── Standalone rig builder helpers ──────────────────────────────────────────
@@ -262,6 +256,7 @@ export default function App() {
   // Grid image
   const gridImgRef = useRef<HTMLImageElement | null>(null);
   const gridImgReadyRef = useRef(false);
+  const gridTexturesRef = useRef<THREE.Texture[]>([]);
 
   // Mapping preview composite canvas
   const mappingPreviewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -393,6 +388,15 @@ export default function App() {
     img.src = '/GRID_V2.jpg';
     img.onload = () => { gridImgReadyRef.current = true; };
     gridImgRef.current = img;
+
+    new THREE.TextureLoader().load('/GRID_V2.jpg', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      gridTexturesRef.current = [0, 1, 2, 3].map(() => {
+        const t = tex.clone();
+        t.needsUpdate = true;
+        return t;
+      });
+    });
   }, []);
 
   useEffect(() => { facesRef.current = faces; }, [faces]);
@@ -428,14 +432,21 @@ export default function App() {
             const { x, y, w, h } = face.mapping;
             const dx = x * cw, dy = y * ch, dw = w * cw, dh = h * ch;
             try {
+              const drawSlice = (el: HTMLVideoElement | HTMLImageElement, isVid: boolean) => {
+                const nw = isVid ? (el as HTMLVideoElement).videoWidth : (el as HTMLImageElement).naturalWidth || (el as HTMLImageElement).width;
+                const nh = isVid ? (el as HTMLVideoElement).videoHeight : (el as HTMLImageElement).naturalHeight || (el as HTMLImageElement).height;
+                if (!nw || !nh) return;
+                ctx.drawImage(el, x * nw, y * nh, w * nw, h * nh, dx, dy, dw, dh);
+              };
+
               if (face.scene === 'camera' && videoRef.current?.srcObject) {
-                ctx.drawImage(videoRef.current, dx, dy, dw, dh);
+                drawSlice(videoRef.current, true);
               } else if (face.scene === 'trailer' && trailerVideoRef.current && (trailerVideoRef.current.readyState ?? 0) >= 2) {
-                ctx.drawImage(trailerVideoRef.current, dx, dy, dw, dh);
+                drawSlice(trailerVideoRef.current, true);
               } else if (face.scene === 'fileinput' && fileSourceRef.current) {
-                ctx.drawImage(fileSourceRef.current.el, dx, dy, dw, dh);
+                drawSlice(fileSourceRef.current.el, fileSourceRef.current.type === 'video');
               } else if (face.scene === 'grid_img' && gridImgReadyRef.current && gridImgRef.current) {
-                ctx.drawImage(gridImgRef.current, dx, dy, dw, dh);
+                drawSlice(gridImgRef.current, false);
               } else {
                 const src = faceCanvasRef.current.get(i);
                 if (src) ctx.drawImage(src.canvas, dx, dy, dw, dh);
@@ -522,254 +533,206 @@ export default function App() {
     return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
   };
 
-  const drawGradient = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, t: number) => {
-    const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    const h1 = (t * 20) % 360, h2 = (h1 + 120) % 360, h3 = (h1 + 240) % 360;
-    g.addColorStop(0, `hsl(${h1},100%,50%)`);
-    g.addColorStop(0.5, `hsl(${h2},100%,50%)`);
-    g.addColorStop(1, `hsl(${h3},100%,50%)`);
+  const drawGradient = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, t: number, params: any) => {
+    const speed = params?.speed ?? 1;
+    const angle = (t * 0.15 * speed) % (Math.PI * 2);
+    const cx = canvas.width / 2 + Math.cos(angle) * canvas.width * 0.5;
+    const cy = canvas.height / 2 + Math.sin(angle) * canvas.height * 0.5;
+    const cx2 = canvas.width / 2 - Math.cos(angle) * canvas.width * 0.5;
+    const cy2 = canvas.height / 2 - Math.sin(angle) * canvas.height * 0.5;
+    const g = ctx.createLinearGradient(cx, cy, cx2, cy2);
+    const h1 = (t * 30 * speed) % 360;
+    const h2 = (h1 + 110) % 360;
+    const h3 = (h1 + 220) % 360;
+    g.addColorStop(0,   `hsl(${h1},100%,55%)`);
+    g.addColorStop(0.45, `hsl(${h2},100%,50%)`);
+    g.addColorStop(1,   `hsl(${h3},100%,55%)`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-  };
-
-  const drawMatrix = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, cols: number[]) => {
-    ctx.fillStyle = 'rgba(0,0,0,0.05)';
+    // soft radial overlay for depth
+    const r2 = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width * 0.8);
+    r2.addColorStop(0, `hsla(${(h1 + 60) % 360},100%,70%,0.35)`);
+    r2.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = r2;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.font = '14px monospace';
-    const chars = 'アイウエオカキクケコ0123456789ABCDEFGHabcdefgh';
-    for (let i = 0; i < cols.length; i++) {
-      ctx.fillStyle = `rgba(0,255,133,${Math.random() * 0.5 + 0.5})`;
-      ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * 12, cols[i]);
-      if (cols[i] > canvas.height && Math.random() > 0.975) cols[i] = 0;
-      cols[i] += 14;
-    }
-  };
-
-  const drawTurbulent = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, t: number, params: any) => {
-    const sc = params.scale || 0.1;
-    const seed = params.seed || 0;
-    const posterize = params.posterize || false;
-    const id = ctx.createImageData(canvas.width, canvas.height);
-    const d = id.data;
-    for (let y = 0; y < canvas.height; y++) {
-      for (let x = 0; x < canvas.width; x++) {
-        let n = 0, a = 1, f = 1;
-        for (let k = 0; k < 4; k++) {
-          n += noise2D(x * sc * f + t + seed, y * sc * f + t * 0.7 + seed * 0.5) * a;
-          a *= 0.5; f *= 2;
-        }
-        let v = (n + 1) * 0.5; // 0..1
-        if (posterize) v = Math.floor(v * 6) / 6;
-        const colorV = Math.floor(v * 255);
-        const idx = (y * canvas.width + x) * 4;
-        d[idx] = colorV;
-        d[idx + 1] = Math.floor(colorV * 0.6 + 60);
-        d[idx + 2] = Math.floor(colorV * 0.3 + 120);
-        d[idx + 3] = 255;
-      }
-    }
-    ctx.putImageData(id, 0, 0);
-  };
-
-  const drawGeo = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, t: number, params: any) => {
-    const speed = params.speed || 1.0;
-    const complexity = params.complexity || 3;
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.globalCompositeOperation = 'screen';
-
-    for (let i = 0; i < 5 + complexity; i++) {
-      const cycleLen = 4 / speed;
-      const progress = (t % cycleLen) / cycleLen;
-      const bounce = easeBackOut(progress > 0.8 ? (1 - progress) * 5 : progress * 1.25 % 1);
-
-      const phase = (t * 0.3 * speed + i * 0.8) % (Math.PI * 2);
-      const x = canvas.width / 2 + Math.cos(phase + i) * (80 * bounce);
-      const y = canvas.height / 2 + Math.sin(phase + (i * 0.5)) * (80 * bounce);
-      const sz = (25 + Math.sin(t * speed + i) * 15) * bounce;
-
-      const hue = (i * 45 + t * 20) % 360;
-      ctx.fillStyle = `hsla(${hue}, 90%, 60%, 0.4)`;
-      ctx.strokeStyle = `hsla(${hue}, 100%, 70%, 0.8)`;
-      ctx.lineWidth = 3;
-
-      ctx.beginPath();
-      const st = Math.floor((i + Math.floor(t * speed / 2)) % 3);
-      if (st < 1) {
-        ctx.arc(x, y, sz, 0, Math.PI * 2);
-      } else if (st < 2) {
-        ctx.moveTo(x, y - sz);
-        ctx.lineTo(x + sz, y + sz);
-        ctx.lineTo(x - sz, y + sz);
-        ctx.closePath();
-      } else {
-        ctx.rect(x - sz, y - sz, sz * 2, sz * 2);
-      }
-      ctx.fill();
-      ctx.stroke();
-    }
-    ctx.globalCompositeOperation = 'source-over';
   };
 
   const drawWin98 = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, t: number, params: any) => {
-    const chaos = params.speed || 1;
-    ctx.fillStyle = '#008080'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const chaos = params?.speed ?? 1;
+    const S = canvas.width / 320; // scale factor relative to 320px base
 
-    // Draw background icons
-    const drawIcon = (x: number, y: number, label: number) => {
-      ctx.fillStyle = '#c0c0c0'; ctx.fillRect(x, y, 20, 20); // Base
-      ctx.fillStyle = '#000'; ctx.font = '6px Arial';
-      ctx.fillText(label % 2 === 0 ? 'My Comp' : 'Recycle', x - 5, y + 28);
-    };
-    for (let i = 0; i < 4; i++) drawIcon(20 + i * 60, 20, i);
+    // Desktop bg
+    ctx.fillStyle = '#008080';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Dynamic windows
+    // Tiled desktop texture
+    for (let gy = 0; gy < canvas.height; gy += 4 * S) {
+      for (let gx = 0; gx < canvas.width; gx += 4 * S) {
+        if ((Math.floor(gx / (4 * S)) + Math.floor(gy / (4 * S))) % 2 === 0) {
+          ctx.fillStyle = 'rgba(0,0,0,0.04)';
+          ctx.fillRect(gx, gy, 4 * S, 4 * S);
+        }
+      }
+    }
+
+    // Desktop icons
+    const iconLabels = ['My Computer', 'Recycle Bin', 'Network', 'My Docs', 'Notepad', 'Paint'];
+    const iconEmojis = ['💻', '🗑️', '🌐', '📄', '📝', '🎨'];
+    const cols2 = Math.ceil(6 / 2);
+    for (let i = 0; i < 6; i++) {
+      const ix = (10 + (i % cols2) * 70) * S;
+      const iy = (10 + Math.floor(i / cols2) * 70) * S;
+      // Icon box
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(ix, iy, 32 * S, 32 * S);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = S;
+      ctx.strokeRect(ix, iy, 32 * S, 32 * S);
+      // Emoji
+      ctx.font = `${20 * S}px serif`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(iconEmojis[i], ix + 16 * S, iy + 26 * S);
+      // Label
+      ctx.font = `${7 * S}px "Tahoma", sans-serif`;
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 3 * S;
+      ctx.fillText(iconLabels[i], ix + 16 * S, iy + 44 * S);
+      ctx.shadowBlur = 0;
+    }
+
+    // Windows
+    const winDefs = [
+      { title: 'SYSTEM ERROR', color: '#000080', content: ['Fatal exception 0E', 'at 0028:C000AF0F', 'Press any key...'], w: 200, h: 130 },
+      { title: 'MEMORY LEAK', color: '#800000', content: ['Memory: 0%', 'Stack Overflow', 'Rebooting...'], w: 180, h: 110 },
+      { title: 'SIGNAL LOST', color: '#004040', content: ['Connection timed out', 'Retry in 3s...', 'ERR_CONN_0xDEAD'], w: 210, h: 120 },
+      { title: 'KERNEL PANIC', color: '#202020', content: ['0xC000021A', 'Win32k.sys', 'DUMP: 0x0000007B'], w: 195, h: 125 },
+      { title: 'DLL MISSING', color: '#800080', content: ['msvcrt.dll not found', 'System32 corrupt', 'Call 1-800-HELP'], w: 185, h: 115 },
+    ];
     const count = 3 + Math.floor(chaos * 2);
-    for (let i = 0; i < count; i++) {
-      const cycle = (t * 0.3 * chaos + i) % 1;
-      const bounce = easeBackOut(cycle);
-      const x = 20 + i * 40 + (Math.sin(t * 0.2 + i) * 30 * bounce);
-      const y = 40 + (i * 30) + (Math.cos(t * 0.4 + i) * 20 * bounce);
-      const w = 120, h = 90;
+    for (let i = 0; i < Math.min(count, winDefs.length); i++) {
+      const def = winDefs[i];
+      const cycle = (t * 0.25 * chaos + i * 0.7) % 1;
+      const bounce = easeBackOut(Math.min(cycle * 1.3, 1));
+      const bx = (15 + i * 35 + Math.sin(t * 0.3 * chaos + i) * 15 * bounce) * S;
+      const by = (80 + i * 28 + Math.cos(t * 0.5 * chaos + i) * 12 * bounce) * S;
+      const bw = def.w * S, bh = def.h * S;
 
-      // Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x + 4, y + 4, w, h);
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(bx + 5 * S, by + 5 * S, bw, bh);
+
       // Window body
-      ctx.fillStyle = '#c0c0c0'; ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
-      ctx.strokeStyle = '#333'; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+      ctx.fillStyle = '#c0c0c0';
+      ctx.fillRect(bx, by, bw, bh);
 
-      // Title bar - randomized pro colors
-      const headers = ['#000080', '#008080', '#800000', '#808000', '#000000'];
-      ctx.fillStyle = headers[i % headers.length];
-      ctx.fillRect(x + 2, y + 2, w - 4, 16);
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 9px "Tahoma", sans-serif';
-      ctx.fillText(i % 2 === 0 ? 'SYSTΕM ΕRROR' : 'MΕMORY LΕAK', x + 6, y + 13);
+      // 3D border highlight
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = S;
+      ctx.beginPath(); ctx.moveTo(bx, by + bh); ctx.lineTo(bx, by); ctx.lineTo(bx + bw, by); ctx.stroke();
+      ctx.strokeStyle = '#555555';
+      ctx.beginPath(); ctx.moveTo(bx + bw, by); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx, by + bh); ctx.stroke();
 
-      // Content
-      ctx.fillStyle = '#000'; ctx.font = '8px "Courier New"';
-      const msgs = ['404 Not Found', 'Init sequence...', 'Stack Overflow', 'Re-routing...'];
-      ctx.fillText(msgs[(i + Math.floor(t)) % msgs.length], x + 10, y + 40);
+      // Title bar
+      const grad = ctx.createLinearGradient(bx + 3 * S, by + 3 * S, bx + bw - 3 * S, by + 3 * S);
+      grad.addColorStop(0, def.color);
+      grad.addColorStop(1, '#1a1a6e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(bx + 3 * S, by + 3 * S, bw - 6 * S, 18 * S);
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${9 * S}px "Tahoma", sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.fillText(def.title, bx + 8 * S, by + 15 * S);
+
+      // Title bar buttons
+      const btnY = by + 4 * S, btnSz = 14 * S;
+      ['✕', '□', '─'].forEach((lbl, bi) => {
+        const btnX = bx + bw - (bi + 1) * (btnSz + 2 * S) - 3 * S;
+        ctx.fillStyle = '#c0c0c0'; ctx.fillRect(btnX, btnY, btnSz, btnSz);
+        ctx.strokeStyle = '#fff'; ctx.strokeRect(btnX, btnY, btnSz, btnSz);
+        ctx.fillStyle = '#000'; ctx.font = `${7 * S}px "Tahoma", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(lbl, btnX + btnSz / 2, btnY + 10 * S);
+      });
+
+      // Content area
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(bx + 3 * S, by + 24 * S, bw - 6 * S, bh - 48 * S);
+
+      ctx.fillStyle = '#000'; ctx.font = `${8 * S}px "Courier New", monospace`;
+      ctx.textAlign = 'left';
+      def.content.forEach((line, li) => {
+        ctx.fillText(line, bx + 8 * S, by + 38 * S + li * 14 * S);
+      });
 
       // Progress bar
-      ctx.fillStyle = '#888'; ctx.fillRect(x + 10, y + 60, w - 20, 10);
-      ctx.fillStyle = '#000080'; ctx.fillRect(x + 10, y + 60, (w - 20) * ((t * 2 + i) % 10 / 10), 10);
+      const progW = bw - 20 * S;
+      const progFill = ((t * 1.5 * chaos + i) % 10) / 10;
+      ctx.fillStyle = '#888'; ctx.fillRect(bx + 10 * S, by + bh - 22 * S, progW, 10 * S);
+      ctx.fillStyle = def.color; ctx.fillRect(bx + 10 * S, by + bh - 22 * S, progW * progFill, 10 * S);
+      // progress text
+      ctx.fillStyle = '#fff'; ctx.font = `${6 * S}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`${Math.round(progFill * 100)}%`, bx + bw / 2, by + bh - 14 * S);
     }
 
-    // Cursor Trail
-    for (let k = 0; k < 8; k++) {
-      const ct = t - k * 0.05;
-      const cx = canvas.width / 2 + Math.sin(ct * 2 * chaos) * 80;
-      const cy = canvas.height / 2 + Math.cos(ct * 1.5 * chaos) * 60;
-      ctx.globalAlpha = 1 - (k / 8);
-      ctx.fillStyle = '#fff'; ctx.fillRect(cx, cy, 4, 4); // Pixel cursor
-      ctx.strokeStyle = '#000'; ctx.strokeRect(cx, cy, 4, 4);
+    // Glitch horizontal lines
+    const glitchCount = Math.floor(chaos * 4);
+    for (let g = 0; g < glitchCount; g++) {
+      const snapT = Math.floor(t * 8 * chaos) / (8 * chaos);
+      const gy2 = ((snapT * 997 * (g + 1)) % 1) * canvas.height;
+      const gw = canvas.width * (0.3 + Math.random() * 0.7);
+      const gx = (Math.random() * 0.3) * canvas.width;
+      ctx.fillStyle = `rgba(255,255,255,${0.08 + Math.random() * 0.1})`;
+      ctx.fillRect(gx, gy2, gw, S * 2);
+    }
+
+    // Moving cursor
+    for (let k = 0; k < 10; k++) {
+      const ct = t - k * 0.04;
+      const cpx = canvas.width * 0.5 + Math.sin(ct * 1.8 * chaos) * canvas.width * 0.35;
+      const cpy = canvas.height * 0.55 + Math.cos(ct * 1.3 * chaos) * canvas.height * 0.25;
+      ctx.globalAlpha = (1 - k / 10) * 0.9;
+      // Arrow cursor shape
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(cpx, cpy);
+      ctx.lineTo(cpx, cpy + 14 * S);
+      ctx.lineTo(cpx + 4 * S, cpy + 10 * S);
+      ctx.lineTo(cpx + 6 * S, cpy + 14 * S);
+      ctx.lineTo(cpx + 8 * S, cpy + 13 * S);
+      ctx.lineTo(cpx + 6 * S, cpy + 9 * S);
+      ctx.lineTo(cpx + 10 * S, cpy + 9 * S);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = S * 0.8;
+      ctx.stroke();
     }
     ctx.globalAlpha = 1;
-  };
 
-  const drawScanlines = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, t: number) => {
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const scanY = ((t * 60) % (canvas.height + 100)) - 50;
-    for (let y = 0; y < canvas.height; y += 4) {
-      ctx.fillStyle = `rgba(0,255,133,${y % 8 === 0 ? 0.12 : 0.05})`;
-      ctx.fillRect(0, y, canvas.width, 2);
-    }
-    const gr = ctx.createLinearGradient(0, scanY - 60, 0, scanY + 60);
-    gr.addColorStop(0, 'rgba(0,255,133,0)');
-    gr.addColorStop(0.5, 'rgba(0,255,133,0.6)');
-    gr.addColorStop(1, 'rgba(0,255,133,0)');
-    ctx.fillStyle = gr; ctx.fillRect(0, scanY - 60, canvas.width, 120);
-    ctx.strokeStyle = '#00ff85'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0, scanY); ctx.lineTo(canvas.width, scanY); ctx.stroke();
+    // Taskbar
+    const tbH = 22 * S;
+    ctx.fillStyle = '#c0c0c0';
+    ctx.fillRect(0, canvas.height - tbH, canvas.width, tbH);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = S;
+    ctx.beginPath(); ctx.moveTo(0, canvas.height - tbH); ctx.lineTo(canvas.width, canvas.height - tbH); ctx.stroke();
+    // Start button
+    ctx.fillStyle = '#c0c0c0';
+    ctx.fillRect(2 * S, canvas.height - tbH + 2 * S, 40 * S, tbH - 4 * S);
+    ctx.strokeStyle = '#fff'; ctx.strokeRect(2 * S, canvas.height - tbH + 2 * S, 40 * S, tbH - 4 * S);
+    ctx.font = `bold ${9 * S}px "Tahoma", sans-serif`;
+    ctx.fillStyle = '#000'; ctx.textAlign = 'left';
+    ctx.fillText('Start', 6 * S, canvas.height - tbH + 15 * S);
+    // Clock
+    const now = new Date();
+    const clockStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    ctx.font = `${8 * S}px "Tahoma", sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText(clockStr, canvas.width - 6 * S, canvas.height - tbH + 14 * S);
   };
 
   const drawWhite = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
     ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  };
-
-  const drawGrid = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, opacity = 0.1) => {
-    ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
-    ctx.lineWidth = 0.5;
-    const step = 20;
-    ctx.beginPath();
-    for (let x = 0; x <= canvas.width; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
-    for (let y = 0; y <= canvas.height; y += step) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
-    ctx.stroke();
-  };
-
-  const drawKinetic = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, t: number, params: any) => {
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawGrid(ctx, canvas, 0.05);
-
-    const txt = params.text || '*404* error';
-    const speed = params.speed || 1;
-    const motion = params.motion || 'elegant';
-    const isBW = params.colorMode === 'bw';
-
-    const words = txt.split(' ');
-    ctx.textAlign = 'center';
-
-    words.forEach((word: string, idx: number) => {
-      ctx.save();
-      // Form vs Counter-form logic: alternate globalCompositeOperation
-      if (idx % 2 === 0) {
-        ctx.globalCompositeOperation = 'difference';
-        ctx.fillStyle = isBW ? '#fff' : `hsl(${(t * 50 + idx * 30) % 360}, 100%, 60%)`;
-      } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = isBW ? '#fff' : `hsl(${(t * 50 + idx * 60) % 360}, 100%, 70%)`;
-      }
-
-      let yPos, scale, rot = 0;
-      if (motion === 'glitch') {
-        const snapT = Math.floor(t * 12) / 12;
-        yPos = (canvas.height / 2) + Math.sin(snapT * speed + idx) * 100;
-        scale = 1.0 + (Math.random() > 0.9 ? 0.5 : 0);
-        rot = Math.random() > 0.95 ? (Math.random() - 0.5) * 0.2 : 0;
-      } else {
-        const slowT = t * 0.5 * speed;
-        yPos = (canvas.height / 2) + Math.cos(slowT + idx * 0.8) * 80;
-        scale = 1.2 + Math.sin(slowT + idx) * 0.4;
-      }
-
-      ctx.font = `bold ${Math.floor(60 * scale)}px Impact, sans-serif`;
-      ctx.translate(canvas.width / 2, yPos);
-      ctx.rotate(rot);
-      ctx.fillText(word, 0, 0);
-      ctx.restore();
-    });
-    ctx.globalCompositeOperation = 'source-over';
-  };
-
-  const drawCountdown = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, t: number) => {
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawGrid(ctx, canvas, 0.03);
-
-    const ms = (24 * 3600 * 1000) - (t * 1000);
-    const h = Math.floor(ms / 3600000);
-    const m = Math.floor((ms % 3600000) / 60000);
-    const s = Math.floor((ms % 60000) / 1000);
-    const msStr = Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
-    const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${msStr}`;
-
-    // Programmer aesthetic: No neon, no blur
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.font = '10px "Courier New", monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText(`> SYSTEM_TIME: ${timeStr}`, 20, 30);
-    ctx.fillText(`> STATUS: CALIBRATING VOLUMES`, 20, 45);
-    ctx.fillText(`> BUFFER: [${'█'.repeat(Math.floor((t * 2) % 10))}${'░'.repeat(10 - Math.floor((t * 2) % 10))}]`, 20, 60);
-
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 64px "Courier New", monospace';
-    ctx.fillText(timeStr, canvas.width / 2, canvas.height / 2 + 20);
-
-    // Subtle data noise
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    for (let i = 0; i < 3; i++) {
-      const ry = Math.floor(Math.random() * canvas.height);
-      ctx.fillRect(0, ry, canvas.width, 1);
-    }
   };
 
   // ─── Three.js Initialization ───────────────────────────────────────────────
@@ -1001,30 +964,13 @@ export default function App() {
         // Skip canvas redraw for fileinput (uses VideoTexture or CanvasTexture directly handled in useEffect)
         if (face.scene === 'fileinput') return;
         if (face.scene === 'trailer') return;
+        if (face.scene === 'grid_img') return;
 
         const { canvas, ctx } = fd;
         switch (face.scene) {
-          case 'gradient': drawGradient(ctx, canvas, time); break;
-          case 'matrix': {
-            const cols = matrixColsRef.current.get(i) || [];
-            drawMatrix(ctx, canvas, cols);
-            break;
-          }
-          case 'turbulent': drawTurbulent(ctx, canvas, time, face.params); break;
-          case 'geo': drawGeo(ctx, canvas, time, face.params); break;
+          case 'gradient': drawGradient(ctx, canvas, time, face.params); break;
           case 'win98': drawWin98(ctx, canvas, time, face.params); break;
-          case 'scanlines': drawScanlines(ctx, canvas, time); break;
-          case 'kinetic': drawKinetic(ctx, canvas, time, face.params); break;
-          case 'countdown': drawCountdown(ctx, canvas, time); break;
           case 'white': drawWhite(ctx, canvas); break;
-          case 'grid_img': {
-            if (gridImgReadyRef.current && gridImgRef.current) {
-              ctx.drawImage(gridImgRef.current, 0, 0, canvas.width, canvas.height);
-            } else {
-              ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-            break;
-          }
           case 'camera': {
             ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             drawGrid(ctx, canvas, 0.05);
@@ -1241,6 +1187,23 @@ export default function App() {
         mat.needsUpdate = true;
       } else if (face.scene === 'trailer' && trailerVideoTexturesRef.current[i]) {
         const tex = trailerVideoTexturesRef.current[i];
+
+        const repX = face.mapping.w;
+        const repY = face.mapping.h;
+        const offX = face.mapping.x;
+        const offY = 1 - repY - face.mapping.y;
+
+        tex.repeat.set(repX, repY);
+        tex.offset.set(offX, offY);
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.needsUpdate = true;
+
+        if (mat.map !== tex) { mat.map = tex; mat.emissiveMap = tex; }
+        mat.opacity = offFaceOpacity;
+        mat.needsUpdate = true;
+      } else if (face.scene === 'grid_img' && gridTexturesRef.current[i]) {
+        const tex = gridTexturesRef.current[i];
 
         const repX = face.mapping.w;
         const repY = face.mapping.h;
@@ -1775,74 +1738,12 @@ export default function App() {
                         <span className="text-[9px] text-gray-500 uppercase font-bold">Variación</span>
                       </div>
 
-                      {/* text for kinetic */}
-                      {face.scene === 'kinetic' && (
-                        <>
-                          <input type="text" placeholder="TEXT..." value={face.params?.text || ''}
-                            onChange={e => updateFace(face.id, { params: { ...face.params, text: e.target.value } })}
-                            className="w-full text-[10px] bg-black border border-white/10 rounded px-1 py-0.5 text-white/70" />
-
-                          <div className="flex gap-1">
-                            {(['elegant', 'glitch'] as const).map(m => (
-                              <button key={m}
-                                onClick={() => updateFace(face.id, { params: { ...face.params, motion: m } })}
-                                className="flex-1 text-[8px] py-1 rounded border border-white/5 uppercase"
-                                style={{ background: face.params?.motion === m ? '#fff' : '#111', color: face.params?.motion === m ? '#000' : '#666' }}>
-                                {m}
-                              </button>
-                            ))}
-                          </div>
-
-                          <div className="flex gap-1">
-                            {(['color', 'bw'] as const).map(c => (
-                              <button key={c}
-                                onClick={() => updateFace(face.id, { params: { ...face.params, colorMode: c } })}
-                                className="flex-1 text-[8px] py-1 rounded border border-white/5 uppercase"
-                                style={{ background: face.params?.colorMode === c ? '#fff' : '#111', color: face.params?.colorMode === c ? '#000' : '#666' }}>
-                                {c}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-
-                      {face.scene === 'turbulent' && (
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center text-[8px] text-gray-500 uppercase">
-                            <span>Seed</span>
-                            <span>{face.params?.seed || 0}</span>
-                          </div>
-                          <input type="range" min={0} max={100} step={1} value={face.params?.seed || 0}
-                            onChange={e => updateFace(face.id, { params: { ...face.params, seed: +e.target.value } })}
-                            className="w-full h-0.5 accent-white" />
-
-                          <label className="flex items-center gap-2 text-[8px] text-gray-500 cursor-pointer pt-1">
-                            <input type="checkbox" checked={face.params?.posterize || false}
-                              onChange={e => updateFace(face.id, { params: { ...face.params, posterize: e.target.checked } })}
-                              className="w-3 h-3" />
-                            <span>POSTERIZAR</span>
-                          </label>
-                        </div>
-                      )}
-
-                      {face.scene === 'geo' && (
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center text-[8px] text-gray-500 uppercase">
-                            <span>Layers</span>
-                            <span>{face.params?.complexity || 3}</span>
-                          </div>
-                          <input type="range" min={1} max={15} step={1} value={face.params?.complexity || 3}
-                            onChange={e => updateFace(face.id, { params: { ...face.params, complexity: +e.target.value } })}
-                            className="w-full h-0.5 accent-white" />
-                        </div>
-                      )}
-
-                      {/* density for matrix */}
-                      {face.scene === 'matrix' && (
+                      {/* speed for gradient and win98 */}
+                      {(face.scene === 'gradient' || face.scene === 'win98') && (
                         <div className="flex gap-2 items-center">
-                          <span className="text-[8px] text-gray-600">Dns</span>
-                          <input type="range" min={0.5} max={3} step={0.1} value={face.params?.density || 1}
-                            onChange={e => updateFace(face.id, { params: { ...face.params, density: +e.target.value } })}
+                          <span className="text-[8px] text-gray-600">Velocidad</span>
+                          <input type="range" min={0.1} max={3} step={0.1} value={face.params?.speed || 1}
+                            onChange={e => updateFace(face.id, { params: { ...face.params, speed: +e.target.value } })}
                             className="flex-1 h-0.5 accent-white" />
                         </div>
                       )}
