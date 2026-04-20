@@ -765,7 +765,7 @@ export default function App() {
     const controls = new OrbitControls(cam, cvs);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.minDistance = 2;
+    controls.minDistance = 0.01;
     controls.maxDistance = 20;
     controls.autoRotateSpeed = 0.6;
     orbitRef.current = controls;
